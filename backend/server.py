@@ -30,7 +30,13 @@ api_router = APIRouter(prefix="/api")
 # In-memory session store for generated runs (process-local; fine for single-pod demo)
 SESSIONS: Dict[str, Dict[str, Any]] = {}
 
-SUPPORTED_MODELS = ["gpt2", "gpt2-medium", "facebook/opt-125m"]
+SUPPORTED_MODELS = [
+    "Qwen/Qwen2.5-0.5B-Instruct",
+    "HuggingFaceTB/SmolLM2-360M-Instruct",
+    "gpt2",
+    "gpt2-medium",
+    "facebook/opt-125m",
+]
 BUILTIN_PATTERNS = ["square", "checkerboard", "circle", "diamond", "cross"]
 
 
@@ -38,13 +44,13 @@ BUILTIN_PATTERNS = ["square", "checkerboard", "circle", "diamond", "cross"]
 
 class GenerateRequest(BaseModel):
     prompt: str
-    model_name: str = Field(default="gpt2")
-    max_new_tokens: int = Field(default=120, ge=20, le=300)
-    pattern: str = Field(default="square")  # built-in choice OR "upload"
+    model_name: str = Field(default="Qwen/Qwen2.5-0.5B-Instruct")
+    max_new_tokens: int = Field(default=120, ge=20, le=400)
+    pattern: str = Field(default="checkerboard")  # built-in choice OR "upload"
     pattern_image_b64: Optional[str] = None  # base64-encoded image if pattern == "upload"
     secret_key: str = Field(default="llmwatermark")
     gamma: float = Field(default=0.5, ge=0.1, le=0.9)
-    delta: float = Field(default=0.3, ge=0.05, le=2.0)
+    delta: float = Field(default=1.0, ge=0.05, le=4.0)
     temperature: float = Field(default=0.8, ge=0.1, le=1.5)
     top_p: float = Field(default=0.9, ge=0.5, le=1.0)
     tau: float = Field(default=0.75, ge=0.5, le=1.0)
@@ -197,3 +203,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def _warmup_default_model() -> None:
+    """Pre-load the default model in a background thread so the first
+    user request doesn't hit cold-download latency (which would 502 behind
+    the preview proxy). Safe to fail silently."""
+    import threading
+
+    def _load():
+        try:
+            from llm_engine import load_model
+            logger.info("Warming up default model: Qwen/Qwen2.5-0.5B-Instruct")
+            load_model("Qwen/Qwen2.5-0.5B-Instruct")
+            logger.info("Default model warmed up.")
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Model warmup failed: {e}")
+
+    threading.Thread(target=_load, daemon=True).start()

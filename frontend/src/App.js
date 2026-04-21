@@ -8,7 +8,20 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const BUILTIN_PATTERNS = ["square", "checkerboard", "circle", "diamond", "cross"];
-const MODELS = ["gpt2", "gpt2-medium", "facebook/opt-125m"];
+const MODELS = [
+  "Qwen/Qwen2.5-0.5B-Instruct",
+  "HuggingFaceTB/SmolLM2-360M-Instruct",
+  "gpt2",
+  "gpt2-medium",
+  "facebook/opt-125m",
+];
+const MODEL_LABELS = {
+  "Qwen/Qwen2.5-0.5B-Instruct": "Qwen 2.5 · 0.5B · instruct",
+  "HuggingFaceTB/SmolLM2-360M-Instruct": "SmolLM2 · 360M · instruct",
+  "gpt2": "GPT-2 · 124M · base",
+  "gpt2-medium": "GPT-2 · 355M · base",
+  "facebook/opt-125m": "OPT · 125M · base",
+};
 
 function AdvancedPopover({ open, onClose, state, setState }) {
   if (!open) return null;
@@ -53,7 +66,7 @@ function AdvancedPopover({ open, onClose, state, setState }) {
             />
           </div>
           <Slider id="gamma" label="gamma (green fraction)" min={0.1} max={0.9} step={0.05} value={state.gamma} onChange={(v) => setState({ ...state, gamma: v })} fmt={(v) => v.toFixed(2)} />
-          <Slider id="delta" label="delta (logit bias)" min={0.05} max={2.0} step={0.05} value={state.delta} onChange={(v) => setState({ ...state, delta: v })} fmt={(v) => v.toFixed(2)} />
+          <Slider id="delta" label="delta (logit bias)" min={0.05} max={4.0} step={0.05} value={state.delta} onChange={(v) => setState({ ...state, delta: v })} fmt={(v) => v.toFixed(2)} />
           <Slider id="tau" label="tau (detection threshold)" min={0.5} max={1.0} step={0.05} value={state.tau} onChange={(v) => setState({ ...state, tau: v })} fmt={(v) => v.toFixed(2)} />
           <div className="grid grid-cols-2 gap-3">
             <Slider id="temperature" label="temperature" min={0.1} max={1.5} step={0.1} value={state.temperature} onChange={(v) => setState({ ...state, temperature: v })} fmt={(v) => v.toFixed(1)} />
@@ -151,7 +164,7 @@ function ChatInput({
               className="h-8 bg-transparent border border-transparent hover:border-[#E5E5DF] text-[11px] font-mono text-[#444440] rounded-md px-2 focus:outline-none"
             >
               {MODELS.map((m) => (
-                <option key={m} value={m}>{m}</option>
+                <option key={m} value={m}>{MODEL_LABELS[m] || m}</option>
               ))}
             </select>
             <div className="hidden sm:flex items-center gap-2 text-[11px] font-mono text-[#666661]">
@@ -159,7 +172,7 @@ function ChatInput({
               <input
                 type="range"
                 min={40}
-                max={240}
+                max={320}
                 step={10}
                 value={maxTokens}
                 onChange={(e) => setMaxTokens(parseInt(e.target.value, 10))}
@@ -228,7 +241,7 @@ function ChatInput({
       </div>
 
       <div className="text-[10px] font-mono text-[#888884] text-center mt-3 tracking-wide uppercase">
-        Local HuggingFace inference · first generation loads model weights (~40–60s)
+        Local HuggingFace inference on CPU · ~15–40s per response
       </div>
     </div>
   );
@@ -393,12 +406,12 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [pattern, setPattern] = useState("checkerboard");
   const [uploadB64, setUploadB64] = useState(null);
-  const [model, setModel] = useState("gpt2");
+  const [model, setModel] = useState("Qwen/Qwen2.5-0.5B-Instruct");
   const [maxTokens, setMaxTokens] = useState(120);
   const [advanced, setAdvanced] = useState({
     secret_key: "llmwatermark",
     gamma: 0.5,
-    delta: 0.3,
+    delta: 1.0,
     tau: 0.75,
     temperature: 0.8,
     top_p: 0.9,

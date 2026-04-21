@@ -18,6 +18,13 @@ from image_utils import (
 
 _MODEL_CACHE: Dict = {}
 
+# Models that follow an instruction-style chat template (so user prompts get answered,
+# not just continued). Base LLMs like gpt2 stay completion-style.
+INSTRUCT_MODELS = {
+    "HuggingFaceTB/SmolLM2-360M-Instruct",
+    "Qwen/Qwen2.5-0.5B-Instruct",
+}
+
 
 def load_model(model_name: str = "gpt2"):
     if model_name not in _MODEL_CACHE:
@@ -28,6 +35,29 @@ def load_model(model_name: str = "gpt2"):
         model.eval()
         _MODEL_CACHE[model_name] = (tokenizer, model)
     return _MODEL_CACHE[model_name]
+
+
+def _build_input_ids(tokenizer, model_name: str, prompt: str):
+    """
+    For instruction-tuned models, wrap the user prompt in the model's chat template
+    so it actually answers the question instead of continuing text. For base models,
+    use the raw prompt.
+    """
+    if model_name in INSTRUCT_MODELS and hasattr(tokenizer, "apply_chat_template"):
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant. Answer the user's question clearly and concisely."},
+            {"role": "user", "content": prompt},
+        ]
+        try:
+            input_ids = tokenizer.apply_chat_template(
+                messages,
+                add_generation_prompt=True,
+                return_tensors="pt",
+            )
+            return input_ids
+        except Exception:
+            pass
+    return tokenizer(prompt, return_tensors="pt").input_ids
 
 
 def generate_watermarked(
@@ -45,7 +75,7 @@ def generate_watermarked(
     wm = PatternWatermark(secret_key=secret_key, gamma=gamma, delta=delta)
     vocab_size = model.config.vocab_size
 
-    input_ids = tokenizer(prompt, return_tensors="pt").input_ids
+    input_ids = _build_input_ids(tokenizer, model_name, prompt)
     prompt_len = input_ids.shape[1]
     last_prompt_token = int(input_ids[0, -1].item())
 
@@ -114,23 +144,31 @@ def detect_watermark(
             return {"error": "No pattern bits or reference image provided."}
 
     recovered_bits = wm.recover_bits(generated_ids, last_prompt_token, vocab_size)
-    ratio = PatternWatermark.lcs_ratio(pattern_bits, recovered_bits)
+
+    # Only compare against the portion of the pattern that was actually embedded.
+    # The LogitsProcessor only biases steps 0..len(generated_ids)-1, so later
+    # pattern bits were never written into the token stream.
+    effective_pattern = pattern_bits[: len(generated_ids)]
+    ratio = PatternWatermark.lcs_ratio(effective_pattern, recovered_bits)
     z = wm.z_score(generated_ids, last_prompt_token, vocab_size)
 
-    target_grid = pattern_to_grid(pattern_bits, rows, cols)
-    recovered_grid = reconstruct_grid(pattern_bits, recovered_bits, rows, cols)
+    # Re-shape the grid to exactly the embedded length so the visualisation
+    # is tight (matches what the model actually produced, not the max budget).
+    eff_rows, eff_cols = compute_grid_size(len(generated_ids)) if len(generated_ids) > 0 else (rows, cols)
+    target_grid = pattern_to_grid(effective_pattern, eff_rows, eff_cols)
+    recovered_grid = reconstruct_grid(effective_pattern, recovered_bits, eff_rows, eff_cols)
 
-    matches = sum(a == b for a, b in zip(pattern_bits, recovered_bits[: len(pattern_bits)]))
+    matches = sum(a == b for a, b in zip(effective_pattern, recovered_bits))
     return {
         "is_watermarked": bool(ratio >= tau),
         "lcs_ratio": float(ratio),
         "z_score": float(z),
         "n_tokens": len(generated_ids),
-        "rows": rows,
-        "cols": cols,
+        "rows": eff_rows,
+        "cols": eff_cols,
         "target_grid": target_grid,
         "recovered_grid": recovered_grid,
         "bit_matches": int(matches),
-        "pattern_length": len(pattern_bits),
+        "pattern_length": len(effective_pattern),
         "recovered_length": len(recovered_bits),
     }
