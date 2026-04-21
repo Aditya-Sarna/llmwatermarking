@@ -1,0 +1,151 @@
+{
+  "project_name": "LLM Watermark Studio",
+  "domain": "AI Research & Technical Tool",
+  "theme": "Light",
+  "archetype": "Archetype 4 (Swiss & High-Contrast) + Archetype 1 (Organic & Earthy base)",
+  "color_palette": {
+    "background": {
+      "app": "#F5F5F0",
+      "surface": "#FFFFFF",
+      "surface_hover": "#F0F0EB",
+      "surface_inverse": "#111111"
+    },
+    "text": {
+      "primary": "#111111",
+      "secondary": "#666661",
+      "inverse": "#F5F5F0",
+      "mono": "#444440"
+    },
+    "border": {
+      "default": "#E5E5DF",
+      "strong": "#111111"
+    },
+    "semantic": {
+      "watermark_hit": "#10B981",
+      "watermark_miss": "#EF4444",
+      "watermark_noise": "#E5E5DF",
+      "accent": "#111111"
+    }
+  },
+  "typography": {
+    "imports": [
+      "https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,500,700,400&f[]=satoshi@400,500,700&display=swap",
+      "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap"
+    ],
+    "families": {
+      "heading": "'Cabinet Grotesk', sans-serif",
+      "body": "'Satoshi', sans-serif",
+      "mono": "'JetBrains Mono', monospace"
+    },
+    "scale": {
+      "h1": "text-4xl tracking-tight font-heading font-bold",
+      "h2": "text-2xl tracking-tight font-heading font-bold",
+      "h3": "text-xl font-heading font-medium",
+      "body": "text-base font-body leading-relaxed",
+      "mono_sm": "text-xs font-mono tracking-tight",
+      "mono_lg": "text-lg font-mono tracking-tight",
+      "label": "text-xs uppercase tracking-[0.2em] font-heading font-bold text-[#666661]"
+    }
+  },
+  "spacing_and_layout": {
+    "philosophy": "Single column conversational interface mimicking LLMs, centered, generous padding to feel like a premium editorial tool rather than a crammed dashboard.",
+    "container": "max-w-4xl mx-auto px-4 sm:px-6 w-full h-screen flex flex-col",
+    "chat_area": "flex-1 overflow-y-auto pt-12 pb-40 space-y-8",
+    "input_area": "fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#F5F5F0] via-[#F5F5F0] to-transparent pointer-events-none"
+  },
+  "component_guidelines": {
+    "header": {
+      "description": "Minimal top bar. Contains brand name left, and 'How it works' trigger right.",
+      "styles": "fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-6 z-40 backdrop-blur-md bg-[#F5F5F0]/80 border-b border-[#E5E5DF]"
+    },
+    "input_bar": {
+      "description": "Prominent chat input at the bottom. Floats above the background. pointer-events-auto inside the container.",
+      "styles": "max-w-3xl mx-auto bg-white border border-[#E5E5DF] shadow-[0_8px_32px_rgba(0,0,0,0.04)] rounded-2xl p-4 flex flex-col gap-3 transition-all",
+      "anatomy": {
+        "top_row": "Flex container for Pattern Picker chips and Model Selector. Scrollable horizontally if needed.",
+        "bottom_row": "Textarea (auto-growing, max height 200px) + Action Buttons (Advanced Settings Trigger, Generate Button)"
+      }
+    },
+    "pattern_picker": {
+      "description": "Chips/thumbnails to select visual pattern before generation.",
+      "styles": "flex items-center gap-2",
+      "chip_unselected": "h-8 px-3 rounded-full border border-[#E5E5DF] text-xs font-heading font-medium text-[#666661] hover:border-[#111111] hover:text-[#111111] transition-colors cursor-pointer flex items-center gap-1.5",
+      "chip_selected": "h-8 px-3 rounded-full border border-[#111111] bg-[#111111] text-white text-xs font-heading font-medium transition-colors cursor-pointer flex items-center gap-1.5"
+    },
+    "model_selector": {
+      "description": "Unobtrusive select dropdown (Shadcn Select) for model choice (gpt2, opt, etc).",
+      "styles": "h-8 border-none bg-transparent hover:bg-[#F5F5F0] text-xs font-mono text-[#666661]"
+    },
+    "advanced_drawer": {
+      "description": "Collapsible settings panel triggered from input bar. Use Shadcn Popover or Collapsible.",
+      "content": "Sliders and inputs for secret key, gamma, delta, tau, temperature, top_p.",
+      "styles": "bg-white border border-[#E5E5DF] shadow-xl p-6 rounded-xl space-y-4 w-80 z-50",
+      "label_style": "text-xs font-mono text-[#666661] uppercase tracking-wider",
+      "input_style": "h-9 bg-[#F5F5F0] border-none rounded-md font-mono text-sm px-3 w-full"
+    },
+    "message_bubbles": {
+      "user": "bg-[#F5F5F0] border border-[#E5E5DF] text-[#111111] rounded-2xl rounded-tr-sm p-4 max-w-[80%] ml-auto font-body",
+      "assistant": "bg-white border border-[#E5E5DF] text-[#111111] rounded-2xl rounded-tl-sm p-5 max-w-[90%] mr-auto font-body shadow-sm space-y-4"
+    },
+    "metric_pills": {
+      "description": "Small pills attached to the assistant message showing generation metadata.",
+      "styles": "inline-flex items-center px-2 py-1 rounded bg-[#F5F5F0] border border-[#E5E5DF] text-[10px] font-mono text-[#666661] uppercase gap-1 mr-2 mb-2"
+    },
+    "verify_action": {
+      "description": "Button to trigger watermark detection.",
+      "styles": "mt-2 inline-flex items-center px-4 py-2 bg-white border border-[#111111] text-[#111111] text-xs font-heading font-bold uppercase tracking-widest hover:bg-[#111111] hover:text-white transition-colors cursor-pointer"
+    },
+    "verdict_card": {
+      "description": "Appears after verification. Contains Verdict Chip, Z-Score, LCS Ratio, and Visualizations.",
+      "styles": "mt-4 p-5 bg-[#F5F5F0] border border-[#E5E5DF] rounded-xl flex flex-col gap-6"
+    },
+    "verdict_chip": {
+      "positive": "inline-flex items-center gap-2 px-3 py-1.5 bg-[#10B981]/10 border border-[#10B981]/20 text-[#10B981] font-mono text-sm font-bold rounded-full",
+      "negative": "inline-flex items-center gap-2 px-3 py-1.5 bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] font-mono text-sm font-bold rounded-full"
+    },
+    "side_by_side_visualizer": {
+      "description": "Two CSS grids (Target vs Recovered).",
+      "container": "grid grid-cols-1 md:grid-cols-2 gap-8",
+      "grid_wrapper": "flex flex-col gap-2",
+      "grid_title": "text-xs font-mono uppercase tracking-widest text-[#666661]",
+      "css_grid": "display: grid; gap: 1px; background-color: #E5E5DF; border: 1px solid #E5E5DF; padding: 1px; width: fit-content",
+      "cell_hit": "bg-[#10B981] w-4 h-4 sm:w-6 sm:h-6",
+      "cell_miss": "bg-[#EF4444] w-4 h-4 sm:w-6 sm:h-6",
+      "cell_noise": "bg-white w-4 h-4 sm:w-6 sm:h-6"
+    },
+    "how_it_works_panel": {
+      "description": "Slide-in panel (Shadcn Sheet) replacing old 'about' tab.",
+      "styles": "bg-white w-full sm:w-[400px] border-l border-[#E5E5DF] p-6 space-y-6 overflow-y-auto",
+      "content_typography": "prose prose-sm font-body text-[#5C5C59]"
+    }
+  },
+  "motion_and_interactions": {
+    "hover_states": "All buttons and interactive chips must have distinct hover states, specifically border color changes or background inversions.",
+    "transitions": "Use 'transition-all duration-200 ease-in-out' for standard interactions.",
+    "chat_appearance": "New messages should slide up and fade in using framer-motion (y: 10, opacity: 0 -> y: 0, opacity: 1).",
+    "visualizer_reveal": "The target vs recovered grids should stagger their cell appearance for a dramatic 'decoding' effect."
+  },
+  "testing_attributes": {
+    "rules": "All interactive elements must include a data-testid attribute in kebab-case representing their role.",
+    "examples": [
+      "data-testid='chat-input-textarea'",
+      "data-testid='pattern-picker-chip-checkerboard'",
+      "data-testid='generate-button'",
+      "data-testid='verify-watermark-button'",
+      "data-testid='model-selector'",
+      "data-testid='advanced-settings-trigger'"
+    ]
+  },
+  "file_extensions": {
+    "frontend": "Use .js and .jsx only (no .ts or .tsx). Implement Shadcn components in .js."
+  },
+  "instructions_to_main_agent": [
+    "Initialize Tailwind config with the specified color tokens and font families.",
+    "Include the Fontshare and Google Fonts imports in index.css.",
+    "Build the UI as a single-page chat interface. Remove any tabbed navigation.",
+    "Use standard HTML/Tailwind for the message layout, but utilize Shadcn for Select, Popover (Advanced Settings), Sheet (How it works), and Slider.",
+    "Ensure the visual watermark pattern grids map directly to the green/red/white semantic colors defined.",
+    "Follow the mobile-first layout strategy, ensuring the input bar remains sticky at the bottom on all screen sizes.",
+    "Inject the 'testing_attributes' exactly as specified into the JSX."
+  ]
+}
