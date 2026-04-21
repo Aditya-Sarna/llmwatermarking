@@ -237,7 +237,7 @@ function ChatInput({
       </div>
 
       <div className="text-[10px] font-mono text-[#888884] text-center mt-3 tracking-wide uppercase">
-        Text completion models (GPT-2 / OPT) · questions are auto-converted to completion prompts
+        Base completion models (GPT-2 / OPT) — output may be incoherent or inaccurate; this is a watermarking demo, not a factual assistant
       </div>
     </div>
   );
@@ -364,13 +364,9 @@ function AssistantMessage({ msg, onVerify, onRedetect }) {
                   positive={msg.detection.is_watermarked}
                   label={msg.detection.is_watermarked ? "Watermarked" : "Not Watermarked"}
                 />
-                <MetricPill label="LCS" value={msg.detection.lcs_ratio.toFixed(3)} sub={`τ ${msg.detection.tau.toFixed(2)}`} />
+                <MetricPill label="bit-acc" value={`${(msg.detection.bit_accuracy * 100).toFixed(1)}%`} sub={`τ ${(msg.detection.tau * 100).toFixed(0)}%`} />
                 <MetricPill label="z-score" value={msg.detection.z_score.toFixed(2)} />
-                <MetricPill
-                  label="bits"
-                  value={`${msg.detection.bit_matches}/${msg.detection.pattern_length}`}
-                  sub={`${((100 * msg.detection.bit_matches) / Math.max(msg.detection.pattern_length, 1)).toFixed(0)}%`}
-                />
+                <MetricPill label="LCS" value={msg.detection.lcs_ratio.toFixed(3)} sub="info only" />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -455,7 +451,7 @@ function App() {
     secret_key: "llmwatermark",
     gamma: 0.5,
     delta: 1.0,
-    tau: 0.75,
+    tau: 0.60,
     temperature: 0.8,
     top_p: 0.9,
   });

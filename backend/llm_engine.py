@@ -222,8 +222,12 @@ def detect_watermark(
     target_grid = pattern_to_grid(pattern_bits_cmp, vis_rows, vis_cols)
     recovered_grid = reconstruct_grid(pattern_bits_cmp, recovered_bits, vis_rows, vis_cols)
 
+    # Use bit_accuracy for the detection decision, NOT lcs_ratio.
+    # LCS of two random binary seqs ≈ 0.788*n, so lcs_ratio ≈ 0.788 for ANY text —
+    # it cannot distinguish watermarked from non-watermarked.
+    # bit_accuracy ≈ 0.5 for random text, ≈ 0.7-0.9 for watermarked text.
     return {
-        "is_watermarked": ratio >= tau,
+        "is_watermarked": bit_acc >= tau,
         "lcs_ratio": ratio,
         "bit_accuracy": bit_acc,
         "z_score": z,

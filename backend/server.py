@@ -54,7 +54,7 @@ class GenerateRequest(BaseModel):
     delta: float = Field(default=1.0, ge=0.05, le=4.0)
     temperature: float = Field(default=0.8, ge=0.1, le=1.5)
     top_p: float = Field(default=0.9, ge=0.5, le=1.0)
-    tau: float = Field(default=0.75, ge=0.5, le=1.0)
+    tau: float = Field(default=0.60, ge=0.5, le=1.0)
 
 
 class DetectRequest(BaseModel):
