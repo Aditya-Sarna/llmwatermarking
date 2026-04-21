@@ -1,11 +1,15 @@
 from fastapi import FastAPI, APIRouter, HTTPException
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+import asyncio
+import json
 import os
 import io
 import base64
 import logging
+import threading
 import uuid
 import time
 from pathlib import Path
@@ -58,6 +62,14 @@ class GenerateRequest(BaseModel):
 
 class DetectRequest(BaseModel):
     session_id: str
+    secret_key: Optional[str] = None
+    gamma: Optional[float] = None
+    tau: Optional[float] = None
+
+
+class DetectTextRequest(BaseModel):
+    session_id: str
+    text: str
     secret_key: Optional[str] = None
     gamma: Optional[float] = None
     tau: Optional[float] = None
@@ -186,6 +198,134 @@ async def watermark_detect(req: DetectRequest):
     except Exception as e:
         logger.exception("detect_watermark failed")
         raise HTTPException(status_code=500, detail=f"Detection failed: {e}")
+
+    if "error" in det:
+        raise HTTPException(status_code=400, detail=det["error"])
+
+    det["tau"] = tau
+    return det
+
+
+@api_router.post("/watermark/generate/stream")
+async def watermark_generate_stream(req: GenerateRequest):
+    """SSE endpoint — streams tokens as they are generated, then sends session data."""
+    if req.model_name not in SUPPORTED_MODELS:
+        raise HTTPException(status_code=400, detail=f"model_name must be one of {SUPPORTED_MODELS}")
+
+    wm_image = _build_watermark_image(req.pattern, req.pattern_image_b64)
+    queue: asyncio.Queue = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+
+    def _run():
+        try:
+            from llm_engine import generate_watermarked_stream
+            for chunk, is_done, result in generate_watermarked_stream(
+                prompt=req.prompt,
+                watermark_image=wm_image,
+                model_name=req.model_name,
+                max_new_tokens=req.max_new_tokens,
+                secret_key=req.secret_key,
+                gamma=req.gamma,
+                delta=req.delta,
+                temperature=req.temperature,
+                top_p=req.top_p,
+            ):
+                item = ("done", result) if is_done else ("token", chunk)
+                asyncio.run_coroutine_threadsafe(queue.put(item), loop).result()
+        except Exception as e:
+            logger.exception("streaming generation failed")
+            asyncio.run_coroutine_threadsafe(queue.put(("error", str(e))), loop).result()
+
+    threading.Thread(target=_run, daemon=True).start()
+
+    async def event_gen():
+        t0 = time.time()
+        while True:
+            try:
+                msg_type, data = await asyncio.wait_for(queue.get(), timeout=300.0)
+            except asyncio.TimeoutError:
+                yield f"data: {json.dumps({'type': 'error', 'text': 'generation timed out'})}\n\n"
+                return
+
+            if msg_type == "token":
+                yield f"data: {json.dumps({'type': 'token', 'text': data})}\n\n"
+            elif msg_type == "done":
+                elapsed = round(time.time() - t0, 2)
+                r = data
+                session_id = str(uuid.uuid4())
+                SESSIONS[session_id] = {
+                    "generated_ids": r["generated_ids"],
+                    "last_prompt_token": r["last_prompt_token"],
+                    "pattern_bits": r["pattern_bits"],
+                    "rows": r["rows"],
+                    "cols": r["cols"],
+                    "model_name": r["model_name"],
+                    "secret_key": r["secret_key"],
+                    "gamma": r["gamma"],
+                    "delta": r["delta"],
+                    "tau": req.tau,
+                }
+                payload = {
+                    "type": "done",
+                    "session_id": session_id,
+                    "generated_text": r["generated_text"],
+                    "token_count": len(r["generated_ids"]),
+                    "rows": r["rows"],
+                    "cols": r["cols"],
+                    "pattern_length": len(r["pattern_bits"]),
+                    "model_name": r["model_name"],
+                    "delta": r["delta"],
+                    "gamma": r["gamma"],
+                    "tau": req.tau,
+                    "target_grid": r["target_grid"],
+                    "elapsed_s": elapsed,
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+                return
+            elif msg_type == "error":
+                yield f"data: {json.dumps({'type': 'error', 'text': data})}\n\n"
+                return
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@api_router.post("/watermark/detect-text")
+async def watermark_detect_text(req: DetectTextRequest):
+    """Detect watermark in user-supplied text (may differ from original generated text)."""
+    session = SESSIONS.get(req.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found. Run generate first.")
+
+    secret_key = req.secret_key or session["secret_key"]
+    gamma = req.gamma if req.gamma is not None else session["gamma"]
+    tau = req.tau if req.tau is not None else session["tau"]
+
+    def _run():
+        from llm_engine import load_model, detect_watermark
+        tokenizer, _ = load_model(session["model_name"])
+        generated_ids = tokenizer.encode(req.text, add_special_tokens=False)
+        return detect_watermark(
+            watermark_image=None,
+            model_name=session["model_name"],
+            secret_key=secret_key,
+            gamma=gamma,
+            tau=tau,
+            generated_ids=generated_ids,
+            last_prompt_token=session["last_prompt_token"],
+            rows=0,
+            cols=0,
+            pattern_bits=session["pattern_bits"],
+        )
+
+    try:
+        det = await run_in_threadpool(_run)
+    except Exception as e:
+        logger.exception("detect_text failed")
+        raise HTTPException(status_code=500, detail=str(e))
 
     if "error" in det:
         raise HTTPException(status_code=400, detail=det["error"])

@@ -247,8 +247,33 @@ function ChatInput({
   );
 }
 
-function AssistantMessage({ msg, onVerify }) {
+function StreamingMessage({ text }) {
+  return (
+    <div className="anim-msg-in w-full">
+      <div className="flex items-start gap-3">
+        <div className="mt-1 w-7 h-7 rounded-full bg-[#111] text-white flex items-center justify-center shrink-0">
+          <span className="text-[10px] font-mono font-bold">WM</span>
+        </div>
+        <div className="flex-1">
+          <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#888884] mb-2">
+            weaving pattern into tokens…
+          </div>
+          <div className="bg-white border border-[#E5E5DF] rounded-2xl rounded-tl-sm p-5 text-[15px] leading-[1.65] text-[#1a1a19] font-body whitespace-pre-wrap min-h-[60px]">
+            {text
+              ? <>{text}<span className="caret" /></>
+              : <span className="text-[#A8A8A1]">loading model…<span className="caret" /></span>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AssistantMessage({ msg, onVerify, onRedetect }) {
   const d = msg.data;
+  const [editText, setEditText] = React.useState(d.generated_text);
+  const textChanged = editText !== d.generated_text;
   return (
     <div className="anim-msg-in w-full">
       <div className="flex items-start gap-3">
@@ -271,12 +296,29 @@ function AssistantMessage({ msg, onVerify }) {
 
           <div
             data-testid="generated-text"
-            className="bg-white border border-[#E5E5DF] rounded-2xl rounded-tl-sm p-5 text-[15px] leading-[1.65] text-[#1a1a19] font-body whitespace-pre-wrap"
+            className="relative"
           >
-            {d.generated_text}
+            <textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              className="w-full bg-white border border-[#E5E5DF] rounded-2xl rounded-tl-sm p-5 text-[15px] leading-[1.65] text-[#1a1a19] font-body resize-y focus:outline-none focus:ring-2 focus:ring-[#111]/20"
+              style={{ minHeight: 100 }}
+              data-testid="generated-text-area"
+            />
+            {textChanged && (
+              <div className="mt-2 flex items-center gap-3 flex-wrap">
+                <span className="text-[11px] font-mono text-[#888884]">text modified — watermark may degrade</span>
+                <button
+                  onClick={() => setEditText(d.generated_text)}
+                  className="text-[11px] font-mono text-[#888884] underline hover:text-[#111]"
+                >
+                  reset
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Target preview + verify */}
+          {/* Target preview + verify / re-detect */}
           <div className="mt-4 flex flex-wrap items-center gap-4">
             <GridViz
               grid={d.target_grid}
@@ -285,7 +327,7 @@ function AssistantMessage({ msg, onVerify }) {
               variant="target"
               ariaLabel="Embedded target watermark pattern"
             />
-            {!msg.detection && (
+            {!msg.detection && !textChanged && (
               <button
                 data-testid="verify-watermark-button"
                 onClick={() => onVerify(msg.id)}
@@ -293,17 +335,23 @@ function AssistantMessage({ msg, onVerify }) {
                 className="inline-flex items-center gap-2 px-4 py-2 border border-[#111] text-[11px] font-heading font-bold uppercase tracking-[0.18em] text-[#111] hover:bg-[#111] hover:text-white transition-colors rounded-full disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {msg.verifying ? (
-                  <>
-                    <span className="w-1.5 h-1.5 rounded-full bg-current pulse-dot" />
-                    <span>Analysing</span>
-                  </>
+                  <><span className="w-1.5 h-1.5 rounded-full bg-current pulse-dot" /><span>Analysing</span></>
                 ) : (
-                  <>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path d="M2 6 L5 9 L10 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <span>Verify watermark</span>
-                  </>
+                  <><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6 L5 9 L10 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg><span>Verify watermark</span></>
+                )}
+              </button>
+            )}
+            {textChanged && (
+              <button
+                data-testid="redetect-button"
+                onClick={() => onRedetect(msg.id, editText)}
+                disabled={msg.redetecting}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-[#111] text-[11px] font-heading font-bold uppercase tracking-[0.18em] text-[#111] hover:bg-[#111] hover:text-white transition-colors rounded-full disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {msg.redetecting ? (
+                  <><span className="w-1.5 h-1.5 rounded-full bg-current pulse-dot" /><span>Analysing</span></>
+                ) : (
+                  <><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6 L5 9 L10 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg><span>Re-detect edits</span></>
                 )}
               </button>
             )}
@@ -339,8 +387,7 @@ function AssistantMessage({ msg, onVerify }) {
                   grid={msg.detection.recovered_grid}
                   title="recovered pattern"
                   variant="recovered"
-                />
-              </div>
+                />              </div>
               <div className="text-[11px] font-mono text-[#888884]">
                 green = bit 1 recovered · red = bit 0 recovered · white = noise / modification outside LCS
               </div>
@@ -435,7 +482,8 @@ function App() {
     const p = prompt.trim();
     if (!p || busy) return;
     const userMsg = { id: `u-${Date.now()}`, role: "user", text: p };
-    setMessages((m) => [...m, userMsg]);
+    const pendingId = `a-${Date.now()}`;
+    setMessages((m) => [...m, userMsg, { id: pendingId, role: "assistant", streaming: true, streamText: "", data: null, session_id: null }]);
     setPrompt("");
     setBusy(true);
 
@@ -448,17 +496,44 @@ function App() {
         pattern_image_b64: pattern === "upload" ? uploadB64 : null,
         ...advanced,
       };
-      const res = await axios.post(`${API}/watermark/generate`, body, { timeout: 300000 });
-      const asstMsg = {
-        id: `a-${Date.now()}`,
-        role: "assistant",
-        data: res.data,
-        session_id: res.data.session_id,
-      };
-      setMessages((m) => [...m, asstMsg]);
+
+      const resp = await fetch(`${API}/watermark/generate/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.detail || `request failed: ${resp.status}`);
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop();
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith("data: ")) continue;
+          const evt = JSON.parse(line.slice(6));
+          if (evt.type === "token") {
+            setMessages((m) => m.map((x) => x.id === pendingId ? { ...x, streamText: (x.streamText || "") + evt.text } : x));
+          } else if (evt.type === "done") {
+            setMessages((m) => m.map((x) => x.id === pendingId ? { ...x, streaming: false, data: evt, session_id: evt.session_id } : x));
+          } else if (evt.type === "error") {
+            throw new Error(evt.text);
+          }
+        }
+      }
     } catch (e) {
-      const errText = e?.response?.data?.detail || e.message || "Generation failed.";
-      setMessages((m) => [...m, { id: `e-${Date.now()}`, role: "error", text: errText }]);
+      const errText = e.message || "Generation failed.";
+      setMessages((m) => m.filter((x) => x.id !== pendingId).concat({ id: `e-${Date.now()}`, role: "error", text: errText }));
     } finally {
       setBusy(false);
     }
@@ -479,6 +554,25 @@ function App() {
           text: errText,
         })
       );
+    }
+  };
+
+  const handleRedetect = async (msgId, newText) => {
+    setMessages((m) => m.map((x) => (x.id === msgId ? { ...x, redetecting: true } : x)));
+    const msg = messages.find((x) => x.id === msgId);
+    try {
+      const res = await axios.post(`${API}/watermark/detect-text`, {
+        session_id: msg.session_id,
+        text: newText,
+      }, { timeout: 120000 });
+      setMessages((m) => m.map((x) => (x.id === msgId ? { ...x, redetecting: false, detection: res.data } : x)));
+    } catch (e) {
+      const errText = e?.response?.data?.detail || e.message || "Detection failed.";
+      setMessages((m) => m.map((x) => (x.id === msgId ? { ...x, redetecting: false } : x)).concat({
+        id: `e-${Date.now()}`,
+        role: "error",
+        text: errText,
+      }));
     }
   };
 
@@ -528,7 +622,8 @@ function App() {
 
           {messages.map((m) => {
             if (m.role === "user") return <UserMessage key={m.id} text={m.text} />;
-            if (m.role === "assistant") return <AssistantMessage key={m.id} msg={m} onVerify={handleVerify} />;
+            if (m.role === "assistant" && m.streaming) return <StreamingMessage key={m.id} text={m.streamText || ""} />;
+            if (m.role === "assistant") return <AssistantMessage key={m.id} msg={m} onVerify={handleVerify} onRedetect={handleRedetect} />;
             return (
               <div
                 key={m.id}
@@ -540,21 +635,6 @@ function App() {
             );
           })}
 
-          {busy && messages[messages.length - 1]?.role === "user" && (
-            <div className="anim-msg-in flex items-start gap-3">
-              <div className="mt-1 w-7 h-7 rounded-full bg-[#111] text-white flex items-center justify-center shrink-0">
-                <span className="text-[10px] font-mono font-bold">WM</span>
-              </div>
-              <div className="flex-1">
-                <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-[#888884] mb-2">
-                  weaving pattern into tokens…
-                </div>
-                <div className="bg-white border border-[#E5E5DF] rounded-2xl rounded-tl-sm px-5 py-4">
-                  <span className="text-[14px] text-[#555550] font-body caret">loading local model & sampling</span>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </main>
 

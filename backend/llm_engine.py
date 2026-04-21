@@ -4,16 +4,17 @@ LLM engine — fast generation via model.generate() + LogitsProcessor (KV cache)
 
 import torch
 import numpy as np
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from typing import List, Dict, Optional, Tuple
+from threading import Thread
+from transformers import AutoTokenizer, AutoModelForCausalLM, TextIteratorStreamer
+from typing import List, Dict, Optional, Tuple, Generator
 
 from watermark_core import PatternWatermark, PatternWatermarkProcessor
 from image_utils import (
     compute_grid_size,
     binarize_image,
     pattern_to_bits,
-    reconstruct_image,
-    pattern_to_rgba,
+    pattern_to_grid,
+    reconstruct_grid,
 )
 from PIL import Image
 
@@ -78,6 +79,9 @@ def generate_watermarked(
     n_actual = len(generated_ids)
     pattern_bits_used = pattern_bits[:n_actual]
 
+    vis_rows, vis_cols = compute_grid_size(n_actual)
+    target_grid = pattern_to_grid(pattern_bits_used, vis_rows, vis_cols)
+
     return {
         "generated_text": text,
         "generated_ids": generated_ids,
@@ -87,10 +91,10 @@ def generate_watermarked(
         "cols": cols,
         "model_name": model_name,
         "vocab_size": vocab_size,
-        "watermark_image": watermark_image,
         "secret_key": secret_key,
         "gamma": gamma,
         "delta": delta,
+        "target_grid": target_grid,
     }
 
 
@@ -166,21 +170,101 @@ def detect_watermark(
 
     # Visualise using the covered prefix reshaped to a grid
     vis_rows, vis_cols = compute_grid_size(n)
-    import image_utils as _iu
-    vis_pattern = _iu.bits_to_pattern(pattern_bits_cmp, vis_rows, vis_cols)
-    recovered_rgba = reconstruct_image(pattern_bits_cmp, recovered_bits, vis_rows, vis_cols)
-    target_rgba = pattern_to_rgba(vis_pattern)
+    target_grid = pattern_to_grid(pattern_bits_cmp, vis_rows, vis_cols)
+    recovered_grid = reconstruct_grid(pattern_bits_cmp, recovered_bits, vis_rows, vis_cols)
 
     return {
         "is_watermarked": ratio >= tau,
         "lcs_ratio": ratio,
         "bit_accuracy": bit_acc,
         "z_score": z,
-        "recovered_image_rgba": recovered_rgba,
-        "target_image_rgba": target_rgba,
+        "target_grid": target_grid,
+        "recovered_grid": recovered_grid,
         "pattern_bits": pattern_bits_cmp,
         "recovered_bits": recovered_bits,
+        "bit_matches": sum(a == b for a, b in zip(pattern_bits_cmp[:min_len], recovered_bits[:min_len])),
+        "pattern_length": len(pattern_bits_cmp),
         "rows": vis_rows,
         "cols": vis_cols,
         "n_tokens": n,
+    }
+
+
+def generate_watermarked_stream(
+    prompt: str,
+    watermark_image: Image.Image,
+    model_name: str = "gpt2",
+    max_new_tokens: int = 200,
+    secret_key: str = "secret",
+    gamma: float = 0.5,
+    delta: float = 2.0,
+    temperature: float = 0.8,
+    top_p: float = 0.9,
+) -> Generator:
+    """
+    Synchronous generator for streaming token output.
+    Yields (token_text: str, is_done: bool, result: dict|None).
+    Each token chunk yields (text, False, None).
+    Final value yields (None, True, result_dict).
+    """
+    tokenizer, model = load_model(model_name)
+    wm = PatternWatermark(secret_key=secret_key, gamma=gamma, delta=delta)
+    vocab_size = model.config.vocab_size
+
+    input_ids = tokenizer(prompt, return_tensors="pt").input_ids
+    prompt_len = input_ids.shape[1]
+    last_prompt_token = int(input_ids[0, -1].item())
+
+    rows, cols = compute_grid_size(max_new_tokens)
+    pattern = binarize_image(watermark_image, rows, cols)
+    pattern_bits = pattern_to_bits(pattern)
+
+    processor = PatternWatermarkProcessor(wm, pattern_bits, prompt_len)
+    streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+    output_holder: List = []
+
+    def _gen():
+        with torch.no_grad():
+            out = model.generate(
+                input_ids,
+                max_new_tokens=max_new_tokens,
+                do_sample=True,
+                temperature=temperature,
+                top_p=top_p,
+                pad_token_id=tokenizer.eos_token_id,
+                logits_processor=[processor],
+                streamer=streamer,
+            )
+        output_holder.append(out)
+
+    thread = Thread(target=_gen, daemon=True)
+    thread.start()
+
+    for text_chunk in streamer:
+        yield text_chunk, False, None
+
+    thread.join()
+
+    output = output_holder[0]
+    generated_ids = output[0, prompt_len:].tolist()
+    n_actual = len(generated_ids)
+    pattern_bits_used = pattern_bits[:n_actual]
+    text = tokenizer.decode(generated_ids, skip_special_tokens=True)
+
+    vis_rows, vis_cols = compute_grid_size(n_actual)
+    target_grid = pattern_to_grid(pattern_bits_used, vis_rows, vis_cols)
+
+    yield None, True, {
+        "generated_text": text,
+        "generated_ids": generated_ids,
+        "last_prompt_token": last_prompt_token,
+        "pattern_bits": pattern_bits_used,
+        "rows": rows,
+        "cols": cols,
+        "model_name": model_name,
+        "vocab_size": vocab_size,
+        "secret_key": secret_key,
+        "gamma": gamma,
+        "delta": delta,
+        "target_grid": target_grid,
     }
