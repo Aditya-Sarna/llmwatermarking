@@ -110,8 +110,7 @@ def generate_watermarked(
             do_sample=True,
             temperature=temperature,
             top_p=top_p,
-            repetition_penalty=1.3,
-            no_repeat_ngram_size=3,
+            repetition_penalty=1.15,
             pad_token_id=tokenizer.eos_token_id,
             logits_processor=[processor],
         )
@@ -161,8 +160,7 @@ def generate_plain(
             do_sample=True,
             temperature=temperature,
             top_p=top_p,
-            repetition_penalty=1.3,
-            no_repeat_ngram_size=3,
+            repetition_penalty=1.15,
             pad_token_id=tokenizer.eos_token_id,
         )
     gen = out[0, input_ids.shape[1]:].tolist()
@@ -285,8 +283,7 @@ def generate_watermarked_stream(
                 do_sample=True,
                 temperature=temperature,
                 top_p=top_p,
-                repetition_penalty=1.3,
-                no_repeat_ngram_size=3,
+                repetition_penalty=1.15,
                 pad_token_id=tokenizer.eos_token_id,
                 logits_processor=[processor],
                 streamer=streamer,
