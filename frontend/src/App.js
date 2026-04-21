@@ -9,11 +9,13 @@ const API = `${BACKEND_URL}/api`;
 
 const BUILTIN_PATTERNS = ["square", "checkerboard", "circle", "diamond", "cross"];
 const MODELS = [
+  "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
   "gpt2",
   "gpt2-medium",
   "facebook/opt-125m",
 ];
 const MODEL_LABELS = {
+  "TinyLlama/TinyLlama-1.1B-Chat-v1.0": "TinyLlama · 1.1B · instruct",
   "gpt2": "GPT-2 · 124M · base",
   "gpt2-medium": "GPT-2 · 355M · base",
   "facebook/opt-125m": "OPT · 125M · base",
@@ -237,7 +239,7 @@ function ChatInput({
       </div>
 
       <div className="text-[10px] font-mono text-[#888884] text-center mt-3 tracking-wide uppercase">
-        Base completion models (GPT-2 / OPT) — output may be incoherent or inaccurate; this is a watermarking demo, not a factual assistant
+        Base completion models (GPT-2 / OPT) may produce incoherent output — use TinyLlama for better factual quality
       </div>
     </div>
   );
@@ -445,7 +447,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [pattern, setPattern] = useState("checkerboard");
   const [uploadB64, setUploadB64] = useState(null);
-  const [model, setModel] = useState("gpt2");
+  const [model, setModel] = useState("TinyLlama/TinyLlama-1.1B-Chat-v1.0");
   const [maxTokens, setMaxTokens] = useState(120);
   const [advanced, setAdvanced] = useState({
     secret_key: "llmwatermark",

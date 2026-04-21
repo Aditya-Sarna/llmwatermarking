@@ -32,6 +32,32 @@ def load_model(model_name: str = "gpt2"):
     return _MODEL_CACHE[model_name]
 
 
+# Instruction-tuned models — use their chat template; base models get the
+# legacy completion-style conversion.
+_INSTRUCTION_MODELS = {
+    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "microsoft/phi-2",
+}
+
+
+def _format_prompt(prompt: str, model_name: str, tokenizer) -> str:
+    """Return a prompt string ready for the given model."""
+    if model_name in _INSTRUCTION_MODELS:
+        # Use the tokenizer's built-in chat template when available
+        if getattr(tokenizer, 'chat_template', None):
+            try:
+                return tokenizer.apply_chat_template(
+                    [{"role": "user", "content": prompt}],
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+            except Exception:
+                pass
+        # Fallback for phi-2 which may lack a template
+        return f"Instruct: {prompt.strip()}\nOutput:"
+    return _to_completion_prompt(prompt)
+
+
 def _to_completion_prompt(prompt: str) -> str:
     """
     GPT-2 / OPT are base completion models — they continue text, not answer questions.
@@ -91,7 +117,7 @@ def generate_watermarked(
     wm = PatternWatermark(secret_key=secret_key, gamma=gamma, delta=delta)
     vocab_size = model.config.vocab_size
 
-    completion_prompt = _to_completion_prompt(prompt)
+    completion_prompt = _format_prompt(prompt, model_name, tokenizer)
     input_ids = tokenizer(completion_prompt, return_tensors="pt").input_ids
     prompt_len = input_ids.shape[1]
     last_prompt_token = int(input_ids[0, -1].item())
@@ -262,7 +288,7 @@ def generate_watermarked_stream(
     wm = PatternWatermark(secret_key=secret_key, gamma=gamma, delta=delta)
     vocab_size = model.config.vocab_size
 
-    completion_prompt = _to_completion_prompt(prompt)
+    completion_prompt = _format_prompt(prompt, model_name, tokenizer)
     input_ids = tokenizer(completion_prompt, return_tensors="pt").input_ids
     prompt_len = input_ids.shape[1]
     last_prompt_token = int(input_ids[0, -1].item())
