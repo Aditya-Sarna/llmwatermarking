@@ -9,15 +9,11 @@ const API = `${BACKEND_URL}/api`;
 
 const BUILTIN_PATTERNS = ["square", "checkerboard", "circle", "diamond", "cross"];
 const MODELS = [
-  "Qwen/Qwen2.5-0.5B-Instruct",
-  "HuggingFaceTB/SmolLM2-360M-Instruct",
   "gpt2",
   "gpt2-medium",
   "facebook/opt-125m",
 ];
 const MODEL_LABELS = {
-  "Qwen/Qwen2.5-0.5B-Instruct": "Qwen 2.5 · 0.5B · instruct",
-  "HuggingFaceTB/SmolLM2-360M-Instruct": "SmolLM2 · 360M · instruct",
   "gpt2": "GPT-2 · 124M · base",
   "gpt2-medium": "GPT-2 · 355M · base",
   "facebook/opt-125m": "OPT · 125M · base",
@@ -453,7 +449,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [pattern, setPattern] = useState("checkerboard");
   const [uploadB64, setUploadB64] = useState(null);
-  const [model, setModel] = useState("Qwen/Qwen2.5-0.5B-Instruct");
+  const [model, setModel] = useState("gpt2");
   const [maxTokens, setMaxTokens] = useState(120);
   const [advanced, setAdvanced] = useState({
     secret_key: "llmwatermark",

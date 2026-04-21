@@ -21,11 +21,8 @@ from PIL import Image
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-# Force HF caches to a writable directory relative to this file
-_HF_CACHE = str(ROOT_DIR / ".hf_cache")
-os.makedirs(_HF_CACHE, exist_ok=True)
-os.environ.setdefault("HF_HOME", _HF_CACHE)
-os.environ.setdefault("TRANSFORMERS_CACHE", _HF_CACHE)
+# Use system default HF cache (~/.cache/huggingface/hub/) so pre-downloaded models load instantly.
+# Do NOT override HF_HOME — gpt2/gpt2-medium/opt-125m are already cached there.
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("watermark")
@@ -37,8 +34,6 @@ api_router = APIRouter(prefix="/api")
 SESSIONS: Dict[str, Dict[str, Any]] = {}
 
 SUPPORTED_MODELS = [
-    "Qwen/Qwen2.5-0.5B-Instruct",
-    "HuggingFaceTB/SmolLM2-360M-Instruct",
     "gpt2",
     "gpt2-medium",
     "facebook/opt-125m",
@@ -50,7 +45,7 @@ BUILTIN_PATTERNS = ["square", "checkerboard", "circle", "diamond", "cross"]
 
 class GenerateRequest(BaseModel):
     prompt: str
-    model_name: str = Field(default="Qwen/Qwen2.5-0.5B-Instruct")
+    model_name: str = Field(default="gpt2")
     max_new_tokens: int = Field(default=120, ge=20, le=400)
     pattern: str = Field(default="checkerboard")  # built-in choice OR "upload"
     pattern_image_b64: Optional[str] = None  # base64-encoded image if pattern == "upload"
@@ -357,8 +352,8 @@ async def _warmup_default_model() -> None:
     def _load():
         try:
             from llm_engine import load_model
-            logger.info("Warming up default model: Qwen/Qwen2.5-0.5B-Instruct")
-            load_model("Qwen/Qwen2.5-0.5B-Instruct")
+            logger.info("Warming up default model: gpt2")
+            load_model("gpt2")
             logger.info("Default model warmed up.")
         except Exception as e:  # noqa: BLE001
             logger.warning(f"Model warmup failed: {e}")
