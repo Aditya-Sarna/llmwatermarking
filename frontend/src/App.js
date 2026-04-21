@@ -187,7 +187,7 @@ function ChatInput({
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKey}
-            placeholder="Ask anything — a watermark will be woven into every token."
+            placeholder="Start a sentence and the model will complete it with a watermark woven in… (or ask a question and it'll be auto-converted)"
             rows={2}
             className="flex-1 resize-none bg-transparent text-[15px] font-body leading-relaxed text-[#111] placeholder:text-[#A8A8A1] focus:outline-none px-1 py-1 max-h-[200px]"
             style={{ minHeight: 48 }}
@@ -237,7 +237,7 @@ function ChatInput({
       </div>
 
       <div className="text-[10px] font-mono text-[#888884] text-center mt-3 tracking-wide uppercase">
-        Local HuggingFace inference on CPU · ~15–40s per response
+        Text completion models (GPT-2 / OPT) · questions are auto-converted to completion prompts
       </div>
     </div>
   );
@@ -410,9 +410,9 @@ function UserMessage({ text }) {
 
 function EmptyState() {
   const examples = [
-    "Explain how AI is transforming research workflows in modern scientific laboratories.",
-    "Write a short paragraph about the Renaissance and its legacy.",
-    "Describe the economic implications of autonomous vehicles for city planning.",
+    "Artificial intelligence is transforming research workflows in modern scientific laboratories by",
+    "The Renaissance was a cultural movement that profoundly affected European intellectual life. Its legacy includes",
+    "Virat Kohli is one of cricket's greatest batsmen. Born in Delhi in 1988,",
   ];
   return (
     <div className="max-w-2xl mx-auto text-center pt-10 sm:pt-16">

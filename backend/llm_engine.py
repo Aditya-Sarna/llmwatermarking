@@ -32,6 +32,22 @@ def load_model(model_name: str = "gpt2"):
     return _MODEL_CACHE[model_name]
 
 
+def _to_completion_prompt(prompt: str) -> str:
+    """
+    GPT-2 / OPT are base completion models — they continue text, not answer questions.
+    If the user types a question, convert it to a completion-style lead-in so the
+    model generates coherent factual-sounding text rather than fiction.
+    """
+    p = prompt.strip()
+    question_starters = ("who ", "what ", "when ", "where ", "why ", "how ", "is ", "are ", "was ", "were ", "does ", "do ", "did ", "can ", "could ", "will ", "would ", "tell me", "explain", "describe", "define")
+    looks_like_question = p.endswith("?") or p.lower().startswith(question_starters)
+    if looks_like_question:
+        # Strip trailing ? and build a completion lead-in
+        base = p.rstrip("?").strip().rstrip(".")
+        return f"The following is an informative passage about {base}:\n\n"
+    return p
+
+
 def generate_watermarked(
     prompt: str,
     watermark_image: Image.Image,
@@ -47,7 +63,8 @@ def generate_watermarked(
     wm = PatternWatermark(secret_key=secret_key, gamma=gamma, delta=delta)
     vocab_size = model.config.vocab_size
 
-    input_ids = tokenizer(prompt, return_tensors="pt").input_ids
+    completion_prompt = _to_completion_prompt(prompt)
+    input_ids = tokenizer(completion_prompt, return_tensors="pt").input_ids
     prompt_len = input_ids.shape[1]
     last_prompt_token = int(input_ids[0, -1].item())
 
@@ -211,7 +228,8 @@ def generate_watermarked_stream(
     wm = PatternWatermark(secret_key=secret_key, gamma=gamma, delta=delta)
     vocab_size = model.config.vocab_size
 
-    input_ids = tokenizer(prompt, return_tensors="pt").input_ids
+    completion_prompt = _to_completion_prompt(prompt)
+    input_ids = tokenizer(completion_prompt, return_tensors="pt").input_ids
     prompt_len = input_ids.shape[1]
     last_prompt_token = int(input_ids[0, -1].item())
 
