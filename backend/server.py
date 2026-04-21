@@ -21,9 +21,11 @@ from PIL import Image
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-# Force HF caches to writable dir
-os.environ.setdefault("HF_HOME", "/app/backend/.hf_cache")
-os.environ.setdefault("TRANSFORMERS_CACHE", "/app/backend/.hf_cache")
+# Force HF caches to a writable directory relative to this file
+_HF_CACHE = str(ROOT_DIR / ".hf_cache")
+os.makedirs(_HF_CACHE, exist_ok=True)
+os.environ.setdefault("HF_HOME", _HF_CACHE)
+os.environ.setdefault("TRANSFORMERS_CACHE", _HF_CACHE)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("watermark")
