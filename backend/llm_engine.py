@@ -138,7 +138,7 @@ def generate_plain(
 
 
 def detect_watermark(
-    watermark_image: Image.Image,
+    watermark_image: Optional[Image.Image] = None,
     model_name: str = "gpt2",
     secret_key: str = "secret",
     gamma: float = 0.5,
