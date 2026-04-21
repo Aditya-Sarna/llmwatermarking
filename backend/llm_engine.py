@@ -35,16 +35,44 @@ def load_model(model_name: str = "gpt2"):
 def _to_completion_prompt(prompt: str) -> str:
     """
     GPT-2 / OPT are base completion models — they continue text, not answer questions.
-    If the user types a question, convert it to a completion-style lead-in so the
-    model generates coherent factual-sounding text rather than fiction.
+    Convert question-style prompts into natural completion starters that small models
+    can follow without going off the rails.
     """
+    import re
     p = prompt.strip()
-    question_starters = ("who ", "what ", "when ", "where ", "why ", "how ", "is ", "are ", "was ", "were ", "does ", "do ", "did ", "can ", "could ", "will ", "would ", "tell me", "explain", "describe", "define")
-    looks_like_question = p.endswith("?") or p.lower().startswith(question_starters)
-    if looks_like_question:
-        # Strip trailing ? and build a completion lead-in
-        base = p.rstrip("?").strip().rstrip(".")
-        return f"The following is an informative passage about {base}:\n\n"
+    pl = p.lower().rstrip("?. ")
+
+    # "What is X" / "What are X" → "X is" / "X are"
+    m = re.match(r'^what\s+(?:is|are)\s+(.+)$', pl, re.I)
+    if m:
+        subj = m.group(1).strip()
+        verb = "are" if "are" in pl.split()[1] else "is"
+        return f"{subj.capitalize()} {verb}"
+
+    # "Who is X" → "X is"
+    m = re.match(r'^who\s+(?:is|was|were)\s+(.+)$', pl, re.I)
+    if m:
+        return f"{m.group(1).strip().capitalize()} is"
+
+    # "How does / How do X work" → "X works by"
+    m = re.match(r'^how\s+(?:does|do)\s+(.+?)\s+work', pl, re.I)
+    if m:
+        return f"{m.group(1).strip().capitalize()} works by"
+
+    # "Why is / Why are X" → "X is because"
+    m = re.match(r'^why\s+(?:is|are)\s+(.+)$', pl, re.I)
+    if m:
+        return f"{m.group(1).strip().capitalize()} is"
+
+    # "Tell me about / Explain / Describe X" → "X is"
+    m = re.match(r'^(?:tell me (?:about)?|explain|describe|define)\s+(.+)$', pl, re.I)
+    if m:
+        return f"{m.group(1).strip().capitalize()} is"
+
+    # Generic question → strip ? and return as-is for the model to continue
+    if p.endswith("?") or p.lower().startswith(("is ", "are ", "was ", "were ", "does ", "do ", "did ", "can ", "could ", "will ", "would ")):
+        return p.rstrip("?").strip()
+
     return p
 
 
@@ -82,6 +110,8 @@ def generate_watermarked(
             do_sample=True,
             temperature=temperature,
             top_p=top_p,
+            repetition_penalty=1.3,
+            no_repeat_ngram_size=3,
             pad_token_id=tokenizer.eos_token_id,
             logits_processor=[processor],
         )
@@ -131,6 +161,8 @@ def generate_plain(
             do_sample=True,
             temperature=temperature,
             top_p=top_p,
+            repetition_penalty=1.3,
+            no_repeat_ngram_size=3,
             pad_token_id=tokenizer.eos_token_id,
         )
     gen = out[0, input_ids.shape[1]:].tolist()
@@ -249,6 +281,8 @@ def generate_watermarked_stream(
                 do_sample=True,
                 temperature=temperature,
                 top_p=top_p,
+                repetition_penalty=1.3,
+                no_repeat_ngram_size=3,
                 pad_token_id=tokenizer.eos_token_id,
                 logits_processor=[processor],
                 streamer=streamer,
