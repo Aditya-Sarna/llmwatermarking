@@ -176,8 +176,8 @@ class PatternWatermark:
 class PatternWatermarkProcessor(LogitsProcessor):
     """
     LogitsProcessor implementing the m-token context window watermark.
-    Applies watermark only when the current context window is unique in
-    generation history (context masking from paper Section 6.1).
+    Applies watermark at every step (no context masking) so that detection
+    can verify every position without needing to replay generation history.
     """
 
     def __init__(self, wm: PatternWatermark, pattern_bits: List[int], prompt_tokens: List[int]):
@@ -185,10 +185,6 @@ class PatternWatermarkProcessor(LogitsProcessor):
         self.pattern_bits = pattern_bits
         self.prompt_tokens = list(prompt_tokens)
         self._step = 0
-        # Track all tokens (prompt + generated) for context window
-        self._all_tokens: List[int] = list(prompt_tokens)
-        # Track seen context windows for context masking
-        self._seen_contexts: set = set()
 
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
         step = self._step
@@ -200,11 +196,7 @@ class PatternWatermarkProcessor(LogitsProcessor):
         if not context:
             context = (0,)
 
-        # Context masking: only watermark if this context window hasn't appeared before
-        apply_wm = context not in self._seen_contexts
-        self._seen_contexts.add(context)
-
-        if apply_wm and step < len(self.pattern_bits):
+        if step < len(self.pattern_bits):
             bit = self.pattern_bits[step]
             biased = self.wm.apply_bias(scores[0], bit, context)
             scores = biased.unsqueeze(0)

@@ -458,7 +458,7 @@ function App() {
   const [advanced, setAdvanced] = useState({
     secret_key: "llmwatermark",
     gamma: 0.5,
-    delta: 1.0,
+    delta: 2.0,
     tau: 4.0,
     temperature: 0.8,
     top_p: 0.9,
