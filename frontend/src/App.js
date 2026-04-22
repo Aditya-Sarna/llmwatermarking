@@ -232,8 +232,11 @@ function ChatInput({
         </div>
       </div>
 
-      <div className="text-[10px] font-mono text-[#888884] text-center mt-3 tracking-wide uppercase">
-        Base completion models (GPT-2 / OPT) may produce incoherent output — use TinyLlama for better factual quality
+      <div className="mt-3 px-4 py-2 bg-[#FFF8E1] border border-[#E8DCA8] rounded-lg text-[11px] text-[#6B5D2E] text-center leading-relaxed">
+        <span className="font-heading font-bold uppercase tracking-wider">Demo only.</span>
+        {" "}Uses a tiny 135M-parameter local model (no API keys, no cost).
+        Generated text is often <em>incoherent or factually wrong</em> — the goal is to demonstrate the
+        <strong> watermarking algorithm</strong>, not to produce useful answers.
       </div>
     </div>
   );
@@ -577,7 +580,7 @@ function App() {
           </div>
           <span className="font-heading font-bold text-[15px] tracking-tight">Watermark Studio</span>
           <span className="hidden sm:inline text-[10px] font-mono uppercase tracking-[0.22em] text-[#888884]">
-            / visual pattern LLM watermarking
+            / watermarking demo · local 135M model
           </span>
         </div>
         <div className="flex items-center gap-3">
