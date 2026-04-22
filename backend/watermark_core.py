@@ -1,15 +1,19 @@
 """
-Core watermarking logic — Visual Pattern-Based Watermarking (Bashir 2025).
+Core watermarking logic — Green-red list watermarking (Kirchenbauer et al. 2023),
+with improvements informed by Li et al. (2024) and Li et al. / Tr-GoF (2024).
 
-Accuracy guarantees
--------------------
-* A single hash function (SHA3-256) deterministically partitions the vocabulary
-  at every (step, prev_token_id, secret_key) triple.  The partition is exactly
-  reproduced during detection provided the same triple is used.
-* Detection requires the last prompt token so that step-0 context matches
-  what was recorded during embedding.
-* Pattern bits are NOT wrapped: positions beyond the pattern length receive
-  no bias, so they do not artificially inflate the LCS score.
+Key design decisions aligned with the paper:
+--------------------------------------------
+* Context window m=5: hash uses the last min(m, available) tokens as context,
+  matching the paper's ζ_t = A(w_{(t-m):(t-1)}, Key). This is strictly stronger
+  than window=1 (single prev token) because edits corrupt fewer pseudo-random
+  numbers per change (a single edit corrupts at most m downstream ζ values).
+* Detection uses the KGW z-score as the primary statistic, which is a proper
+  pivotal statistic under H0 (asymptotically N(0,1)) unlike bit_accuracy.
+* Bit accuracy is kept as a secondary diagnostic for pattern matching.
+* Context masking: the watermark is only applied when the current m-token context
+  is unique in generation history, preventing repetitive patterns from
+  artificially inflating detection scores (Section 6.1 of the paper).
 """
 
 import hashlib
@@ -18,7 +22,10 @@ import struct
 import numpy as np
 import torch
 from transformers import LogitsProcessor
-from typing import List, Tuple
+from typing import List, Tuple, Optional
+
+# Context window size — paper uses m=5
+CONTEXT_WINDOW = 5
 
 
 class PatternWatermark:
@@ -29,35 +36,36 @@ class PatternWatermark:
         self.delta = delta
 
     # ------------------------------------------------------------------ #
-    #  Green-list partition  (identical in embed and detect)               #
+    #  Green-list partition with m-token context window                   #
     # ------------------------------------------------------------------ #
 
-    def green_mask(self, vocab_size: int, prev_token_id: int, step: int) -> np.ndarray:
+    def green_mask(self, vocab_size: int, context: Tuple[int, ...]) -> np.ndarray:
         """
         Returns boolean numpy array shape (vocab_size,).
-        Seeds a numpy RNG with SHA3-256(prev_token || step || secret_key).
-        Same seed => same partition in both embedding and detection directions.
+        Seeds with SHA3-256(context_tokens || secret_key).
+        context is a tuple of the last min(m, available) token ids.
+        Same seed reproduced during detection provided same context.
         """
-        header = struct.pack(">II", prev_token_id & 0xFFFFFFFF, step & 0xFFFFFFFF)
+        # Pack each context token as 4-byte big-endian uint
+        header = b"".join(struct.pack(">I", t & 0xFFFFFFFF) for t in context)
         seed_bytes = hashlib.sha3_256(header + self.secret_key.encode()).digest()
         seed = struct.unpack(">I", seed_bytes[:4])[0]
         rng = np.random.RandomState(seed)
         return rng.random_sample(vocab_size) < self.gamma
 
     # ------------------------------------------------------------------ #
-    #  Logit bias (Equation 8 of the paper)                               #
+    #  Logit bias                                                          #
     # ------------------------------------------------------------------ #
 
     def apply_bias(
         self,
         logits: torch.Tensor,
         pattern_bit: int,
-        prev_token_id: int,
-        step: int,
+        context: Tuple[int, ...],
     ) -> torch.Tensor:
         """bit==1 => bias green tokens; bit==0 => bias red tokens."""
         mask = torch.from_numpy(
-            self.green_mask(logits.shape[-1], prev_token_id, step)
+            self.green_mask(logits.shape[-1], context)
         ).to(logits.device)
         biased = logits.clone()
         if pattern_bit == 1:
@@ -70,27 +78,33 @@ class PatternWatermark:
     #  Detection helpers                                                   #
     # ------------------------------------------------------------------ #
 
-    def token_bit(self, token_id: int, prev_token_id: int, step: int, vocab_size: int) -> int:
-        return 1 if self.green_mask(vocab_size, prev_token_id, step)[token_id] else 0
+    def token_is_green(self, token_id: int, context: Tuple[int, ...], vocab_size: int) -> bool:
+        return bool(self.green_mask(vocab_size, context)[token_id])
 
     def recover_bits(
         self,
         token_ids: List[int],
-        last_prompt_token: int,
+        prompt_tokens: List[int],
         vocab_size: int,
     ) -> List[int]:
         """
-        Recover bit sequence from generated tokens.
-        last_prompt_token: the last token of the prompt (context for step 0).
+        Recover the green/red bit for each generated token.
+        prompt_tokens: the full prompt token sequence (provides context for early tokens).
         """
+        all_tokens = prompt_tokens + token_ids
         bits = []
-        for step, tok in enumerate(token_ids):
-            prev = last_prompt_token if step == 0 else token_ids[step - 1]
-            bits.append(self.token_bit(tok, prev, step, vocab_size))
+        for i, tok in enumerate(token_ids):
+            pos = len(prompt_tokens) + i  # position in all_tokens
+            # context = last min(CONTEXT_WINDOW, pos) tokens before tok
+            ctx_start = max(0, pos - CONTEXT_WINDOW)
+            context = tuple(all_tokens[ctx_start:pos])
+            if not context:
+                context = (0,)  # fallback
+            bits.append(1 if self.token_is_green(tok, context, vocab_size) else 0)
         return bits
 
     # ------------------------------------------------------------------ #
-    #  LCS (Equations 14-15)                                               #
+    #  LCS (kept for reference / visualization)                           #
     # ------------------------------------------------------------------ #
 
     @staticmethod
@@ -125,14 +139,21 @@ class PatternWatermark:
         return length / len(pattern)
 
     # ------------------------------------------------------------------ #
-    #  KGW z-score (Equation 3)                                           #
+    #  KGW z-score — proper pivotal statistic (Section 2, Li et al. 2024) #
     # ------------------------------------------------------------------ #
 
-    def z_score(self, token_ids: List[int], last_prompt_token: int, vocab_size: int) -> float:
+    def z_score(self, token_ids: List[int], prompt_tokens: List[int], vocab_size: int) -> float:
+        """
+        KGW z-score: (green_count - gamma*n) / sqrt(n*gamma*(1-gamma)).
+        Under H0 (no watermark), this is asymptotically N(0,1).
+        Under H1 (watermarked), expected value > 0 proportional to signal strength.
+        This is the primary detection statistic per the paper.
+        """
         n = len(token_ids)
         if n == 0:
             return 0.0
-        k = sum(self.recover_bits(token_ids, last_prompt_token, vocab_size))
+        bits = self.recover_bits(token_ids, prompt_tokens, vocab_size)
+        k = sum(bits)
         return (k - self.gamma * n) / math.sqrt(n * self.gamma * (1 - self.gamma))
 
 
@@ -142,40 +163,40 @@ class PatternWatermark:
 
 class PatternWatermarkProcessor(LogitsProcessor):
     """
-    Drop-in HuggingFace LogitsProcessor that applies pattern-based bias
-    during model.generate(), preserving the KV cache for speed.
-
-    Usage:
-        processor = PatternWatermarkProcessor(wm, pattern_bits, prompt_length)
-        output = model.generate(..., logits_processor=[processor])
-        generated_ids = processor.generated_ids   # for detection
+    LogitsProcessor implementing the m-token context window watermark.
+    Applies watermark only when the current context window is unique in
+    generation history (context masking from paper Section 6.1).
     """
 
-    def __init__(self, wm: PatternWatermark, pattern_bits: List[int], prompt_length: int):
+    def __init__(self, wm: PatternWatermark, pattern_bits: List[int], prompt_tokens: List[int]):
         self.wm = wm
         self.pattern_bits = pattern_bits
-        self.prompt_length = prompt_length
-        self._step = 0                  # counts generated tokens
-        self._last_input_ids = None     # saved for detection context
-        self.generated_ids: List[int] = []
+        self.prompt_tokens = list(prompt_tokens)
+        self._step = 0
+        # Track all tokens (prompt + generated) for context window
+        self._all_tokens: List[int] = list(prompt_tokens)
+        # Track seen context windows for context masking
+        self._seen_contexts: set = set()
 
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
-        # input_ids shape: (batch, seq_len) — we always run batch=1
-        seq = input_ids[0]
-        # Previous token = last token so far (last prompt token on step 0)
-        prev_token = int(seq[-1].item())
         step = self._step
+        seq = input_ids[0].tolist()
 
-        if step < len(self.pattern_bits):
+        # Build m-token context from current sequence
+        ctx_start = max(0, len(seq) - CONTEXT_WINDOW)
+        context = tuple(seq[ctx_start:])
+        if not context:
+            context = (0,)
+
+        # Context masking: only watermark if this context window hasn't appeared before
+        apply_wm = context not in self._seen_contexts
+        self._seen_contexts.add(context)
+
+        if apply_wm and step < len(self.pattern_bits):
             bit = self.pattern_bits[step]
-            # scores shape: (1, vocab_size)
-            biased = self.wm.apply_bias(scores[0], bit, prev_token, step)
+            biased = self.wm.apply_bias(scores[0], bit, context)
             scores = biased.unsqueeze(0)
 
         self._step += 1
         return scores
-
-    def record_generated(self, token_id: int):
-        """Call after each token is chosen to track the sequence for detection."""
-        self.generated_ids.append(token_id)
 

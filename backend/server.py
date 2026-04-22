@@ -56,7 +56,7 @@ class GenerateRequest(BaseModel):
     delta: float = Field(default=1.0, ge=0.05, le=4.0)
     temperature: float = Field(default=0.8, ge=0.1, le=1.5)
     top_p: float = Field(default=0.9, ge=0.5, le=1.0)
-    tau: float = Field(default=0.60, ge=0.5, le=1.0)
+    tau: float = Field(default=4.0, ge=1.0, le=10.0)
 
 
 class DetectRequest(BaseModel):
@@ -141,7 +141,7 @@ async def watermark_generate(req: GenerateRequest):
     session_id = str(uuid.uuid4())
     SESSIONS[session_id] = {
         "generated_ids": result["generated_ids"],
-        "last_prompt_token": result["last_prompt_token"],
+        "prompt_tokens": result["prompt_tokens"],
         "pattern_bits": result["pattern_bits"],
         "rows": result["rows"],
         "cols": result["cols"],
@@ -186,7 +186,7 @@ async def watermark_detect(req: DetectRequest):
             gamma=gamma,
             tau=tau,
             generated_ids=session["generated_ids"],
-            last_prompt_token=session["last_prompt_token"],
+            prompt_tokens=session["prompt_tokens"],
             rows=session["rows"],
             cols=session["cols"],
             pattern_bits=session["pattern_bits"],
@@ -254,7 +254,7 @@ async def watermark_generate_stream(req: GenerateRequest):
                 session_id = str(uuid.uuid4())
                 SESSIONS[session_id] = {
                     "generated_ids": r["generated_ids"],
-                    "last_prompt_token": r["last_prompt_token"],
+                    "prompt_tokens": r["prompt_tokens"],
                     "pattern_bits": r["pattern_bits"],
                     "rows": r["rows"],
                     "cols": r["cols"],
@@ -314,7 +314,7 @@ async def watermark_detect_text(req: DetectTextRequest):
             gamma=gamma,
             tau=tau,
             generated_ids=generated_ids,
-            last_prompt_token=session["last_prompt_token"],
+            prompt_tokens=session["prompt_tokens"],
             rows=0,
             cols=0,
             pattern_bits=session["pattern_bits"],

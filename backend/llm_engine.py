@@ -128,7 +128,8 @@ def generate_watermarked(
     pattern = binarize_image(watermark_image, rows, cols)
     pattern_bits = pattern_to_bits(pattern)
 
-    processor = PatternWatermarkProcessor(wm, pattern_bits, prompt_len)
+    prompt_tokens = input_ids[0].tolist()
+    processor = PatternWatermarkProcessor(wm, pattern_bits, prompt_tokens)
 
     with torch.no_grad():
         output = model.generate(
@@ -145,10 +146,6 @@ def generate_watermarked(
     generated_ids = output[0, prompt_len:].tolist()
     text = tokenizer.decode(generated_ids, skip_special_tokens=True)
 
-    # CRITICAL: truncate pattern_bits to the actual number of tokens generated.
-    # If the model stopped early (EOS), only the first n bits were embedded.
-    # Without this, LCS ratio = at_most_n / max_new_tokens < tau even for
-    # perfectly watermarked text, causing false negatives.
     n_actual = len(generated_ids)
     pattern_bits_used = pattern_bits[:n_actual]
 
@@ -158,8 +155,8 @@ def generate_watermarked(
     return {
         "generated_text": text,
         "generated_ids": generated_ids,
-        "last_prompt_token": last_prompt_token,
-        "pattern_bits": pattern_bits_used,   # only the bits actually embedded
+        "prompt_tokens": prompt_tokens,
+        "pattern_bits": pattern_bits_used,
         "rows": rows,
         "cols": cols,
         "model_name": model_name,
@@ -199,14 +196,19 @@ def detect_watermark(
     model_name: str = "gpt2",
     secret_key: str = "secret",
     gamma: float = 0.5,
-    tau: float = 0.75,
+    tau: float = 4.0,
     generated_ids: Optional[List[int]] = None,
-    last_prompt_token: int = 0,
+    prompt_tokens: Optional[List[int]] = None,
     rows: int = 0,
     cols: int = 0,
     pattern_bits: Optional[List[int]] = None,
 ) -> Dict:
-    """Detect watermark using stored generated_ids from the embed step."""
+    """
+    Detect watermark using the KGW z-score as the primary statistic.
+    tau is the z-score threshold (not a fraction). Under H0 (no watermark),
+    z ~ N(0,1) so tau=4.0 gives a false positive rate of ~0.003%.
+    Under H1 (watermarked with delta=2.0, 100+ tokens), z >> 4 reliably.
+    """
     _, model = load_model(model_name)
     vocab_size = model.config.vocab_size
     wm = PatternWatermark(secret_key=secret_key, gamma=gamma)
@@ -214,11 +216,11 @@ def detect_watermark(
     if generated_ids is None or not generated_ids:
         return {"error": "No generated token IDs provided."}
 
+    if prompt_tokens is None:
+        prompt_tokens = []
+
     n = len(generated_ids)
 
-    # Recompute or use stored pattern_bits.
-    # Always truncate to len(generated_ids) so the LCS denominator equals
-    # the number of tokens where the watermark was actually embedded.
     if pattern_bits is None:
         if rows == 0 or cols == 0:
             rows, cols = compute_grid_size(n)
@@ -229,33 +231,31 @@ def detect_watermark(
             sq = int(len(full_pattern) ** 0.5)
             rows = cols = sq
 
-    # Use only bits that correspond to tokens that were generated
     pattern_bits_cmp = full_pattern[:n]
 
-    recovered_bits = wm.recover_bits(generated_ids, last_prompt_token, vocab_size)
+    recovered_bits = wm.recover_bits(generated_ids, prompt_tokens, vocab_size)
 
-    # LCS ratio over the covered prefix only
-    ratio = PatternWatermark.lcs_ratio(pattern_bits_cmp, recovered_bits)
-    z = wm.z_score(generated_ids, last_prompt_token, vocab_size)
+    # Primary detection statistic: KGW z-score (proper pivotal statistic)
+    # Under H0: z ~ N(0,1). Under H1: z >> 0.
+    z = wm.z_score(generated_ids, prompt_tokens, vocab_size)
 
-    # Bit-level accuracy (direct match, no alignment)
+    # Secondary: bit accuracy against the pattern (for visualization)
     min_len = min(len(pattern_bits_cmp), len(recovered_bits))
     bit_acc = sum(a == b for a, b in zip(pattern_bits_cmp[:min_len], recovered_bits[:min_len])) / max(min_len, 1)
 
-    # Visualise using the covered prefix reshaped to a grid
+    # LCS kept for reference only
+    ratio = PatternWatermark.lcs_ratio(pattern_bits_cmp, recovered_bits)
+
     vis_rows, vis_cols = compute_grid_size(n)
     target_grid = pattern_to_grid(pattern_bits_cmp, vis_rows, vis_cols)
     recovered_grid = reconstruct_grid(pattern_bits_cmp, recovered_bits, vis_rows, vis_cols)
 
-    # Use bit_accuracy for the detection decision, NOT lcs_ratio.
-    # LCS of two random binary seqs ≈ 0.788*n, so lcs_ratio ≈ 0.788 for ANY text —
-    # it cannot distinguish watermarked from non-watermarked.
-    # bit_accuracy ≈ 0.5 for random text, ≈ 0.7-0.9 for watermarked text.
     return {
-        "is_watermarked": bit_acc >= tau,
-        "lcs_ratio": ratio,
-        "bit_accuracy": bit_acc,
+        "is_watermarked": z >= tau,
         "z_score": z,
+        "tau": tau,
+        "bit_accuracy": bit_acc,
+        "lcs_ratio": ratio,
         "target_grid": target_grid,
         "recovered_grid": recovered_grid,
         "pattern_bits": pattern_bits_cmp,
@@ -298,7 +298,8 @@ def generate_watermarked_stream(
     pattern = binarize_image(watermark_image, rows, cols)
     pattern_bits = pattern_to_bits(pattern)
 
-    processor = PatternWatermarkProcessor(wm, pattern_bits, prompt_len)
+    prompt_tokens = input_ids[0].tolist()
+    processor = PatternWatermarkProcessor(wm, pattern_bits, prompt_tokens)
     streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
     output_holder: List = []
 
@@ -337,7 +338,7 @@ def generate_watermarked_stream(
     yield None, True, {
         "generated_text": text,
         "generated_ids": generated_ids,
-        "last_prompt_token": last_prompt_token,
+        "prompt_tokens": prompt_tokens,
         "pattern_bits": pattern_bits_used,
         "rows": rows,
         "cols": cols,

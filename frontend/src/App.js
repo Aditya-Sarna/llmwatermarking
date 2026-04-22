@@ -67,7 +67,7 @@ function AdvancedPopover({ open, onClose, state, setState }) {
           </div>
           <Slider id="gamma" label="gamma (green fraction)" min={0.1} max={0.9} step={0.05} value={state.gamma} onChange={(v) => setState({ ...state, gamma: v })} fmt={(v) => v.toFixed(2)} />
           <Slider id="delta" label="delta (logit bias)" min={0.05} max={4.0} step={0.05} value={state.delta} onChange={(v) => setState({ ...state, delta: v })} fmt={(v) => v.toFixed(2)} />
-          <Slider id="tau" label="tau (detection threshold)" min={0.5} max={1.0} step={0.05} value={state.tau} onChange={(v) => setState({ ...state, tau: v })} fmt={(v) => v.toFixed(2)} />
+          <Slider id="tau" label="tau (z-score threshold)" min={1.0} max={10.0} step={0.5} value={state.tau} onChange={(v) => setState({ ...state, tau: v })} fmt={(v) => v.toFixed(1)} />
           <div className="grid grid-cols-2 gap-3">
             <Slider id="temperature" label="temperature" min={0.1} max={1.5} step={0.1} value={state.temperature} onChange={(v) => setState({ ...state, temperature: v })} fmt={(v) => v.toFixed(1)} />
             <Slider id="top_p" label="top-p" min={0.5} max={1.0} step={0.05} value={state.top_p} onChange={(v) => setState({ ...state, top_p: v })} fmt={(v) => v.toFixed(2)} />
@@ -368,8 +368,8 @@ function AssistantMessage({ msg, onVerify, onRedetect }) {
                   positive={msg.detection.is_watermarked}
                   label={msg.detection.is_watermarked ? "Watermarked" : "Not Watermarked"}
                 />
-                <MetricPill label="bit-acc" value={`${(msg.detection.bit_accuracy * 100).toFixed(1)}%`} sub={`τ ${(msg.detection.tau * 100).toFixed(0)}%`} />
-                <MetricPill label="z-score" value={msg.detection.z_score.toFixed(2)} />
+                <MetricPill label="z-score" value={msg.detection.z_score.toFixed(2)} sub={`τ ${msg.detection.tau.toFixed(1)}`} />
+                <MetricPill label="bit-acc" value={`${(msg.detection.bit_accuracy * 100).toFixed(1)}%`} sub="vs ~50%" />
                 <MetricPill label="LCS" value={msg.detection.lcs_ratio.toFixed(3)} sub="info only" />
               </div>
 
@@ -455,7 +455,7 @@ function App() {
     secret_key: "llmwatermark",
     gamma: 0.5,
     delta: 1.0,
-    tau: 0.60,
+    tau: 4.0,
     temperature: 0.8,
     top_p: 0.9,
   });
