@@ -4,8 +4,9 @@
   publish = "build"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "20"
   NPM_FLAGS    = "--legacy-peer-deps"
+  YARN_FLAGS   = "--ignore-engines"
 
 # SPA fallback — React Router catches all routes client-side
 [[redirects]]
