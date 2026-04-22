@@ -34,6 +34,8 @@ api_router = APIRouter(prefix="/api")
 SESSIONS: Dict[str, Dict[str, Any]] = {}
 
 SUPPORTED_MODELS = [
+    "HuggingFaceTB/SmolLM2-135M-Instruct",
+    "HuggingFaceTB/SmolLM2-360M-Instruct",
     "Qwen/Qwen2.5-0.5B-Instruct",
     "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
     "gpt2",
@@ -47,7 +49,7 @@ BUILTIN_PATTERNS = ["square", "checkerboard", "circle", "diamond", "cross"]
 
 class GenerateRequest(BaseModel):
     prompt: str
-    model_name: str = Field(default="Qwen/Qwen2.5-0.5B-Instruct")
+    model_name: str = Field(default="HuggingFaceTB/SmolLM2-135M-Instruct")
     max_new_tokens: int = Field(default=120, ge=20, le=400)
     pattern: str = Field(default="checkerboard")  # built-in choice OR "upload"
     pattern_image_b64: Optional[str] = None  # base64-encoded image if pattern == "upload"
@@ -354,8 +356,8 @@ async def _warmup_default_model() -> None:
     def _load():
         try:
             from llm_engine import load_model
-            logger.info("Warming up default model: Qwen2.5-0.5B-Instruct")
-            load_model("Qwen/Qwen2.5-0.5B-Instruct")
+            logger.info("Warming up default model: SmolLM2-135M-Instruct")
+            load_model("HuggingFaceTB/SmolLM2-135M-Instruct")
             logger.info("Default model warmed up.")
         except Exception as e:  # noqa: BLE001
             logger.warning(f"Model warmup failed: {e}")

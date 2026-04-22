@@ -35,6 +35,8 @@ def load_model(model_name: str = "gpt2"):
 # Instruction-tuned models — use their chat template; base models get the
 # legacy completion-style conversion.
 _INSTRUCTION_MODELS = {
+    "HuggingFaceTB/SmolLM2-135M-Instruct",
+    "HuggingFaceTB/SmolLM2-360M-Instruct",
     "Qwen/Qwen2.5-0.5B-Instruct",
     "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
     "microsoft/phi-2",

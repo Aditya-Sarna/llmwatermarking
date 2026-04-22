@@ -9,6 +9,8 @@ const API = `${BACKEND_URL}/api`;
 
 const BUILTIN_PATTERNS = ["square", "checkerboard", "circle", "diamond", "cross"];
 const MODELS = [
+  "HuggingFaceTB/SmolLM2-135M-Instruct",
+  "HuggingFaceTB/SmolLM2-360M-Instruct",
   "Qwen/Qwen2.5-0.5B-Instruct",
   "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
   "gpt2",
@@ -16,6 +18,8 @@ const MODELS = [
   "facebook/opt-125m",
 ];
 const MODEL_LABELS = {
+  "HuggingFaceTB/SmolLM2-135M-Instruct": "SmolLM2 · 135M · instruct (fastest)",
+  "HuggingFaceTB/SmolLM2-360M-Instruct": "SmolLM2 · 360M · instruct",
   "Qwen/Qwen2.5-0.5B-Instruct": "Qwen2.5 · 0.5B · instruct",
   "TinyLlama/TinyLlama-1.1B-Chat-v1.0": "TinyLlama · 1.1B · instruct",
   "gpt2": "GPT-2 · 124M · base",
@@ -449,7 +453,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [pattern, setPattern] = useState("checkerboard");
   const [uploadB64, setUploadB64] = useState(null);
-  const [model, setModel] = useState("Qwen/Qwen2.5-0.5B-Instruct");
+  const [model, setModel] = useState("HuggingFaceTB/SmolLM2-135M-Instruct");
   const [maxTokens, setMaxTokens] = useState(120);
   const [advanced, setAdvanced] = useState({
     secret_key: "llmwatermark",
