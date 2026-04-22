@@ -35,12 +35,6 @@ SESSIONS: Dict[str, Dict[str, Any]] = {}
 
 SUPPORTED_MODELS = [
     "HuggingFaceTB/SmolLM2-135M-Instruct",
-    "HuggingFaceTB/SmolLM2-360M-Instruct",
-    "Qwen/Qwen2.5-0.5B-Instruct",
-    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-    "gpt2",
-    "gpt2-medium",
-    "facebook/opt-125m",
 ]
 BUILTIN_PATTERNS = ["square", "checkerboard", "circle", "diamond", "cross"]
 

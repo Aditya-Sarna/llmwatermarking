@@ -10,21 +10,9 @@ const API = `${BACKEND_URL}/api`;
 const BUILTIN_PATTERNS = ["square", "checkerboard", "circle", "diamond", "cross"];
 const MODELS = [
   "HuggingFaceTB/SmolLM2-135M-Instruct",
-  "HuggingFaceTB/SmolLM2-360M-Instruct",
-  "Qwen/Qwen2.5-0.5B-Instruct",
-  "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-  "gpt2",
-  "gpt2-medium",
-  "facebook/opt-125m",
 ];
 const MODEL_LABELS = {
-  "HuggingFaceTB/SmolLM2-135M-Instruct": "SmolLM2 · 135M · instruct (fastest)",
-  "HuggingFaceTB/SmolLM2-360M-Instruct": "SmolLM2 · 360M · instruct",
-  "Qwen/Qwen2.5-0.5B-Instruct": "Qwen2.5 · 0.5B · instruct",
-  "TinyLlama/TinyLlama-1.1B-Chat-v1.0": "TinyLlama · 1.1B · instruct",
-  "gpt2": "GPT-2 · 124M · base",
-  "gpt2-medium": "GPT-2 · 355M · base",
-  "facebook/opt-125m": "OPT · 125M · base",
+  "HuggingFaceTB/SmolLM2-135M-Instruct": "SmolLM2 · 135M · instruct",
 };
 
 function AdvancedPopover({ open, onClose, state, setState }) {
