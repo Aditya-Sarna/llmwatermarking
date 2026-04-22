@@ -139,16 +139,28 @@ class PatternWatermark:
         return length / len(pattern)
 
     # ------------------------------------------------------------------ #
-    #  KGW z-score — proper pivotal statistic (Section 2, Li et al. 2024) #
+    #  Match-based z-score (proper pivotal for pattern-based scheme)      #
     # ------------------------------------------------------------------ #
 
-    def z_score(self, token_ids: List[int], prompt_tokens: List[int], vocab_size: int) -> float:
+    def z_score_match(self, recovered_bits: List[int], pattern_bits: List[int]) -> float:
         """
-        KGW z-score: (green_count - gamma*n) / sqrt(n*gamma*(1-gamma)).
-        Under H0 (no watermark), this is asymptotically N(0,1).
-        Under H1 (watermarked), expected value > 0 proportional to signal strength.
-        This is the primary detection statistic per the paper.
+        Pattern-based z-score. Counts positions where the recovered green/red
+        bit matches the embedded pattern bit. Under H0 (no watermark),
+        match_prob = 0.5 regardless of gamma, so matches ~ Binomial(n, 0.5)
+        and z = (2*matches - n) / sqrt(n) ~ N(0, 1).
+        Under H1 (watermarked), matches >> n/2 because we biased toward the
+        pattern bit at every position. This is the correct statistic for our
+        scheme — the standard KGW z-score (green-count) is NOT valid here
+        because we bias green or red depending on the pattern bit.
         """
+        n = min(len(recovered_bits), len(pattern_bits))
+        if n == 0:
+            return 0.0
+        matches = sum(1 for a, b in zip(recovered_bits[:n], pattern_bits[:n]) if a == b)
+        return (2 * matches - n) / math.sqrt(n)
+
+    # KGW z-score kept for reference / unbiased pure-KGW use only
+    def z_score_green(self, token_ids: List[int], prompt_tokens: List[int], vocab_size: int) -> float:
         n = len(token_ids)
         if n == 0:
             return 0.0

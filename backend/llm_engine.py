@@ -235,11 +235,15 @@ def detect_watermark(
 
     recovered_bits = wm.recover_bits(generated_ids, prompt_tokens, vocab_size)
 
-    # Primary detection statistic: KGW z-score (proper pivotal statistic)
-    # Under H0: z ~ N(0,1). Under H1: z >> 0.
-    z = wm.z_score(generated_ids, prompt_tokens, vocab_size)
+    # Primary detection statistic: pattern-match z-score.
+    # Under H0: matches ~ Binomial(n, 0.5) → z ~ N(0,1).
+    # Under H1: matches >> n/2 because we biased toward the pattern bit.
+    # The standard KGW green-count z-score is INVALID for our scheme because
+    # we bias green or red depending on pattern_bit; for a balanced pattern,
+    # green-count is ~n/2 even under H1, giving z ≈ 0.
+    z = wm.z_score_match(recovered_bits, pattern_bits_cmp)
 
-    # Secondary: bit accuracy against the pattern (for visualization)
+    # Bit-match accuracy (same info as z, expressed as a percentage)
     min_len = min(len(pattern_bits_cmp), len(recovered_bits))
     bit_acc = sum(a == b for a, b in zip(pattern_bits_cmp[:min_len], recovered_bits[:min_len])) / max(min_len, 1)
 
