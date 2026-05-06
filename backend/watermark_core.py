@@ -62,8 +62,12 @@ class PatternWatermark:
         logits: torch.Tensor,
         pattern_bit: int,
         context: Tuple[int, ...],
+        protected_ids: Optional[List[int]] = None,
     ) -> torch.Tensor:
-        """bit==1 => bias green tokens; bit==0 => bias red tokens."""
+        """bit==1 => bias green tokens; bit==0 => bias red tokens.
+        protected_ids (e.g. EOS, PAD, BOS) are never biased so the model
+        can always terminate cleanly.
+        """
         mask = torch.from_numpy(
             self.green_mask(logits.shape[-1], context)
         ).to(logits.device)
@@ -72,6 +76,11 @@ class PatternWatermark:
             biased[mask] += self.delta
         else:
             biased[~mask] += self.delta
+        # Restore original logits for special tokens — never suppress EOS
+        if protected_ids:
+            for tid in protected_ids:
+                if 0 <= tid < logits.shape[-1]:
+                    biased[tid] = logits[tid]
         return biased
 
     # ------------------------------------------------------------------ #
@@ -180,10 +189,17 @@ class PatternWatermarkProcessor(LogitsProcessor):
     can verify every position without needing to replay generation history.
     """
 
-    def __init__(self, wm: PatternWatermark, pattern_bits: List[int], prompt_tokens: List[int]):
+    def __init__(
+        self,
+        wm: PatternWatermark,
+        pattern_bits: List[int],
+        prompt_tokens: List[int],
+        protected_ids: Optional[List[int]] = None,
+    ):
         self.wm = wm
         self.pattern_bits = pattern_bits
         self.prompt_tokens = list(prompt_tokens)
+        self.protected_ids = protected_ids or []
         self._step = 0
 
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
@@ -198,7 +214,7 @@ class PatternWatermarkProcessor(LogitsProcessor):
 
         if step < len(self.pattern_bits):
             bit = self.pattern_bits[step]
-            biased = self.wm.apply_bias(scores[0], bit, context)
+            biased = self.wm.apply_bias(scores[0], bit, context, self.protected_ids)
             scores = biased.unsqueeze(0)
 
         self._step += 1

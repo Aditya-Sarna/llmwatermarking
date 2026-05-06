@@ -131,7 +131,9 @@ def generate_watermarked(
     pattern_bits = pattern_to_bits(pattern)
 
     prompt_tokens = input_ids[0].tolist()
-    processor = PatternWatermarkProcessor(wm, pattern_bits, prompt_tokens)
+    # Collect all special token IDs so the watermark never suppresses EOS/PAD/BOS
+    protected_ids = list({tokenizer.eos_token_id, tokenizer.pad_token_id, tokenizer.bos_token_id} - {None})
+    processor = PatternWatermarkProcessor(wm, pattern_bits, prompt_tokens, protected_ids)
 
     with torch.no_grad():
         output = model.generate(
@@ -305,7 +307,9 @@ def generate_watermarked_stream(
     pattern_bits = pattern_to_bits(pattern)
 
     prompt_tokens = input_ids[0].tolist()
-    processor = PatternWatermarkProcessor(wm, pattern_bits, prompt_tokens)
+    # Collect all special token IDs so the watermark never suppresses EOS/PAD/BOS
+    protected_ids = list({tokenizer.eos_token_id, tokenizer.pad_token_id, tokenizer.bos_token_id} - {None})
+    processor = PatternWatermarkProcessor(wm, pattern_bits, prompt_tokens, protected_ids)
     streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
     output_holder: List = []
 
