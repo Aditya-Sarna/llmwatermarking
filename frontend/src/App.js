@@ -58,7 +58,7 @@ function AdvancedPopover({ open, onClose, state, setState }) {
             />
           </div>
           <Slider id="gamma" label="gamma (green fraction)" min={0.1} max={0.9} step={0.05} value={state.gamma} onChange={(v) => setState({ ...state, gamma: v })} fmt={(v) => v.toFixed(2)} />
-          <Slider id="delta" label="delta (logit bias)" min={0.5} max={10.0} step={0.5} value={state.delta} onChange={(v) => setState({ ...state, delta: v })} fmt={(v) => v.toFixed(1)} />
+          <Slider id="delta" label="delta (logit bias)" min={0.5} max={4.0} step={0.5} value={state.delta} onChange={(v) => setState({ ...state, delta: v })} fmt={(v) => v.toFixed(1)} />
           <Slider id="tau" label="tau (z-score threshold)" min={1.0} max={10.0} step={0.5} value={state.tau} onChange={(v) => setState({ ...state, tau: v })} fmt={(v) => v.toFixed(1)} />
           <div className="grid grid-cols-2 gap-3">
             <Slider id="temperature" label="temperature" min={0.1} max={1.5} step={0.1} value={state.temperature} onChange={(v) => setState({ ...state, temperature: v })} fmt={(v) => v.toFixed(1)} />
@@ -449,7 +449,7 @@ function App() {
   const [advanced, setAdvanced] = useState({
     secret_key: "llmwatermark",
     gamma: 0.5,
-    delta: 4.0,
+    delta: 1.0,
     tau: 4.0,
     temperature: 0.8,
     top_p: 0.9,
