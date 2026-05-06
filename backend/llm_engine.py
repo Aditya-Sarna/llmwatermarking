@@ -26,7 +26,7 @@ def load_model(model_name: str = "gpt2"):
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
-        model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float32)
+        model = AutoModelForCausalLM.from_pretrained(model_name, dtype=torch.float32)
         model.eval()
         _MODEL_CACHE[model_name] = (tokenizer, model)
     return _MODEL_CACHE[model_name]
