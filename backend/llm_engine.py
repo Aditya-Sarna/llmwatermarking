@@ -140,6 +140,7 @@ def generate_watermarked(
             do_sample=True,
             temperature=temperature,
             top_p=top_p,
+            repetition_penalty=1.15,
             pad_token_id=tokenizer.eos_token_id,
             logits_processor=[processor],
         )
@@ -316,6 +317,7 @@ def generate_watermarked_stream(
                 do_sample=True,
                 temperature=temperature,
                 top_p=top_p,
+                repetition_penalty=1.15,
                 pad_token_id=tokenizer.eos_token_id,
                 logits_processor=[processor],
                 streamer=streamer,

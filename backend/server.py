@@ -49,7 +49,7 @@ class GenerateRequest(BaseModel):
     pattern_image_b64: Optional[str] = None  # base64-encoded image if pattern == "upload"
     secret_key: str = Field(default="llmwatermark")
     gamma: float = Field(default=0.5, ge=0.1, le=0.9)
-    delta: float = Field(default=4.0, ge=0.5, le=10.0)
+    delta: float = Field(default=2.0, ge=0.5, le=10.0)
     temperature: float = Field(default=0.8, ge=0.1, le=1.5)
     top_p: float = Field(default=0.9, ge=0.5, le=1.0)
     tau: float = Field(default=4.0, ge=1.0, le=10.0)
