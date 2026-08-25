@@ -1,2 +1,2 @@
 /* App-level utility styles (minimal) */
-.App { min-height: 100vh; position: relative; z-index: 1; }
+.App { min-height: 100vh; position: relative; z-index: 1; background-color: green; }
