@@ -6,7 +6,7 @@
 @tailwind utilities;
 
 :root {
-  --bg: #F5F5F0;
+  --bg: #228B22;
   --surface: #FFFFFF;
   --surface-hover: #F0F0EB;
   --ink: #111111;
