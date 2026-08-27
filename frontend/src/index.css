@@ -6,7 +6,7 @@
 @tailwind utilities;
 
 :root {
-  --bg: #F5F5F0;
+  --bg: #FF0000;
   --surface: #FFFFFF;
   --surface-hover: #F0F0EB;
   --ink: #111111;
@@ -24,7 +24,7 @@ html, body, #root {
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--ink);
+  color: #FFFF00;
   font-family: 'Satoshi', ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
