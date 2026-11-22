@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 import "@/App.css";
 import { PatternGlyph, GridViz, MetricPill, VerdictChip } from "@/components/WatermarkUI";
 import { HowItWorksPanel } from "@/components/HowItWorksPanel";
@@ -584,6 +585,13 @@ function App() {
           </span>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            to="/dog-food"
+            data-testid="nav-dog-food"
+            className="text-[11px] font-mono text-[#666661] hover:text-[#111] transition-colors"
+          >
+            Dog food
+          </Link>
           <a
             href="https://arxiv.org/"
             target="_blank"
