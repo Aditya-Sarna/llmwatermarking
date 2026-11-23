@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 import "@/App.css";
 import { PatternGlyph, GridViz, MetricPill, VerdictChip } from "@/components/WatermarkUI";
 import { HowItWorksPanel } from "@/components/HowItWorksPanel";
@@ -592,6 +593,13 @@ function App() {
           >
             Bashir 2025 ↗
           </a>
+          <Link
+            to="/faq"
+            data-testid="faq-nav-link"
+            className="text-[11px] font-heading font-bold uppercase tracking-[0.18em] text-[#666661] hover:text-[#111] transition-colors"
+          >
+            FAQ
+          </Link>
           <button
             data-testid="how-it-works-trigger"
             onClick={() => setHowOpen(true)}
