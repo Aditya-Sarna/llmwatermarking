@@ -34,7 +34,7 @@ body {
 ::selection { background: #111111; color: #F5F5F0; }
 
 .font-heading { font-family: 'Cabinet Grotesk', ui-sans-serif, system-ui, sans-serif; }
-.font-body { font-family: 'Satoshi', ui-sans-serif, system-ui, sans-serif; }
+.font-body { font-family: 'Times New Roman', serif; }
 .font-mono { font-family: 'JetBrains Mono', ui-monospace, Menlo, Monaco, monospace; }
 
 /* subtle grain overlay behind everything (scientific / editorial feel) */
