@@ -23,7 +23,7 @@ html, body, #root {
 
 body {
   margin: 0;
-  background: var(--bg);
+  background: linear-gradient(to right, #007BFF, #FFD700);
   color: var(--ink);
   font-family: 'Satoshi', ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
