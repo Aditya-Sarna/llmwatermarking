@@ -3,6 +3,7 @@ import axios from "axios";
 import "@/App.css";
 import { PatternGlyph, GridViz, MetricPill, VerdictChip } from "@/components/WatermarkUI";
 import { HowItWorksPanel } from "@/components/HowItWorksPanel";
+import { AppFooter } from "@/components/AppFooter";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -627,6 +628,13 @@ function App() {
           })}
 
         </div>
+        <AppFooter
+          onOpenHowItWorks={() => setHowOpen(true)}
+          onBackToTop={() => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />
       </main>
 
       {/* Fixed input area */}
