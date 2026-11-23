@@ -1,0 +1,1 @@
+<div><h1>Mom Food Quotes</h1><p>&quot;Food is love.&quot; - Mom</p><p>&quot;Eating is a pleasure, not a duty.&quot; - Mom</p></div>
