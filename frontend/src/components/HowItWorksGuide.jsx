@@ -1,0 +1,1 @@
+<div><h1>How It Works Guide</h1><p>This guide explains the technical details of the watermarking method used in the application.</p></div>
